@@ -1,0 +1,100 @@
+{
+	"name": "pi-ask-user-question",
+	"version": "0.1.0",
+	"description": "Pi extension. Structured questionnaire tool (ask_user_question) that scales past 4 questions — fork of @juicesharp/rpiv-ask-user-question with a configurable question cap and a windowed tab bar.",
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"ask-user-question"
+	],
+	"type": "module",
+	"exports": {
+		".": "./index.ts",
+		"./events": "./events.ts"
+	},
+	"license": "MIT",
+	"author": "juicesharp (original), forked",
+	"scripts": {
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit -p ."
+	},
+	"files": [
+		"ask-user-question.ts",
+		"rpc-fallback.ts",
+		"config.ts",
+		"events.ts",
+		"index.ts",
+		"reconcile.ts",
+		"LICENSE",
+		"locales/",
+		"docs/",
+		"!docs/*.png",
+		"!docs/*.jpg",
+		"!docs/*.svg",
+		"README.md",
+		"state/build-questionnaire.ts",
+		"state/external-editor.ts",
+		"state/i18n-bridge.ts",
+		"state/key-router.ts",
+		"state/questionnaire-session.ts",
+		"state/row-intent.ts",
+		"state/selectors/contract.ts",
+		"state/selectors/derivations.ts",
+		"state/selectors/focus.ts",
+		"state/selectors/projections.ts",
+		"state/state-reducer.ts",
+		"state/state.ts",
+		"tool/format-answer.ts",
+		"tool/normalize-params.ts",
+		"tool/response-envelope.ts",
+		"tool/types.ts",
+		"tool/validate-questionnaire.ts",
+		"view/component-binding.ts",
+		"view/components/inline-input.ts",
+		"view/components/multi-select-view.ts",
+		"view/components/option-list-view.ts",
+		"view/components/preview/markdown-content-cache.ts",
+		"view/components/preview/preview-block-renderer.ts",
+		"view/components/preview/preview-box-renderer.ts",
+		"view/components/preview/preview-layout-decider.ts",
+		"view/components/preview/preview-pane.ts",
+		"view/components/submit-picker.ts",
+		"view/components/tab-bar.ts",
+		"view/components/wrapping-select.ts",
+		"view/dialog-builder.ts",
+		"view/props-adapter.ts",
+		"view/stateful-view.ts",
+		"view/tab-components.ts",
+		"view/tab-content-strategy.ts"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*",
+		"@juicesharp/rpiv-i18n": "*",
+		"typebox": "*"
+	},
+	"peerDependenciesMeta": {
+		"@juicesharp/rpiv-i18n": {
+			"optional": true
+		}
+	},
+	"dependencies": {
+		"@juicesharp/rpiv-config": "^2.12.0"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-ai": "0.80.6",
+		"@earendil-works/pi-coding-agent": "0.80.6",
+		"@earendil-works/pi-tui": "0.80.6",
+		"@juicesharp/rpiv-i18n": "^2.12.0",
+		"@types/node": "22.20.1",
+		"typebox": "1.3.6",
+		"typescript": "6.0.3",
+		"vitest": "4.1.10"
+	}
+}
