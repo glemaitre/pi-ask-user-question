@@ -1101,3 +1101,52 @@ describe("ask_user_question — multi-select notes end-to-end", () => {
 		expect(r?.details.answers[0].notes).toBe("hi");
 	});
 });
+
+describe("ask_user_question — 12 questions (default cap) with windowed tab bar", () => {
+	const twelve = {
+		questions: Array.from({ length: 12 }, (_, i) => ({
+			question: `Question number ${i + 1}?`,
+			header: `Header${i + 1}`,
+			options: [
+				{ label: `Yes${i + 1}`, description: "yes" },
+				{ label: `No${i + 1}`, description: "no" },
+			],
+		})),
+	};
+
+	it("answers all 12 with auto-advance; the active tab is always rendered within width", async () => {
+		const tool = register();
+		const tabLines: string[] = [];
+		const { custom } = driveCustom((c) => {
+			for (let i = 0; i < 12; i++) {
+				tabLines.push(c.render(80).find((l) => l.includes("Submit")) ?? "");
+				c.handleInput(KEY.ENTER);
+			}
+			tabLines.push(c.render(80).find((l) => l.includes("Submit")) ?? "");
+			c.handleInput(KEY.ENTER); // Submit
+		});
+		const ctx = { hasUI: true, ui: { custom } } as never;
+		const r = (await tool.execute?.("tc", twelve as never, undefined as never, undefined as never, ctx)) as
+			| ToolResult
+			| undefined;
+		expect(r?.details.cancelled).toBe(false);
+		expect(r?.details.answers.map((a: QuestionAnswer) => a.answer)).toEqual(
+			Array.from({ length: 12 }, (_, i) => `Yes${i + 1}`),
+		);
+		for (let i = 0; i < 12; i++) {
+			expect(tabLines[i]).toContain(`Header${i + 1} `);
+			expect(tabLines[i]).toContain(`[${i + 1}/13]`);
+		}
+		expect(tabLines[12]).toContain("[13/13]");
+	});
+
+	it("rejects 13 questions with too_many_questions", async () => {
+		const tool = register();
+		const ctx = { hasUI: true, ui: { custom: vi.fn() } } as never;
+		const thirteen = { questions: [...twelve.questions, { ...twelve.questions[0]!, question: "Extra?" }] };
+		const r = (await tool.execute?.("tc", thirteen as never, undefined as never, undefined as never, ctx)) as
+			| ToolResult
+			| undefined;
+		expect(r?.details.error).toBe("too_many_questions");
+	});
+});

@@ -1,5 +1,6 @@
 import type { GuidanceFields } from "@juicesharp/rpiv-config";
 import { loadJsonConfigWithLegacyFallback, validateGuidanceFields } from "@juicesharp/rpiv-config";
+import { DEFAULT_MAX_QUESTIONS, MAX_QUESTIONS_CEILING } from "./tool/types.js";
 
 /** Key spec for the overlay collapse/expand shortcut, e.g. `"ctrl+]"` or `"alt+o"`. */
 export type CollapseKeySpec = string;
@@ -17,6 +18,19 @@ export interface AskUserQuestionConfig {
 	 * Pass `"off"` to disable the collapse shortcut entirely.
 	 */
 	collapseKey?: CollapseKeySpec;
+	/**
+	 * Maximum number of questions the model may ask per invocation. Integer in
+	 * `[1, MAX_QUESTIONS_CEILING]`; anything else falls back to `DEFAULT_MAX_QUESTIONS`.
+	 */
+	maxQuestions?: number;
+}
+
+/** Resolve the per-invocation question cap; invalid values silently fall back to the default. */
+export function resolveMaxQuestions(config: Pick<AskUserQuestionConfig, "maxQuestions">): number {
+	const raw = config.maxQuestions;
+	if (typeof raw !== "number" || !Number.isInteger(raw)) return DEFAULT_MAX_QUESTIONS;
+	if (raw < 1 || raw > MAX_QUESTIONS_CEILING) return DEFAULT_MAX_QUESTIONS;
+	return raw;
 }
 
 // Named keys accepted by pi-tui's `matchesKey` (keys.js switch on the parsed base key).

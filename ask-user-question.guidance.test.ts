@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import { createMockPi } from "./test/utils/index.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+	buildPromptGuidelines,
+	buildPromptSnippet,
 	DEFAULT_PROMPT_GUIDELINES,
 	DEFAULT_PROMPT_SNIPPET,
 	DEFAULT_TOOL_DESCRIPTION,
@@ -138,5 +140,57 @@ describe("registerAskUserQuestionTool — guidance overrides", () => {
 		registerAskUserQuestionTool(pi);
 		const tool = captured.tools.get(TOOL_NAME)!;
 		expect(tool.description).toBe(DEFAULT_TOOL_DESCRIPTION);
+	});
+});
+
+describe("registerAskUserQuestionTool — maxQuestions", () => {
+	function questions(n: number) {
+		return Array.from({ length: n }, (_, i) => ({
+			question: `Q${i}?`,
+			header: `H${i}`,
+			options: [
+				{ label: "A", description: "a" },
+				{ label: "B", description: "b" },
+			],
+		}));
+	}
+
+	it("advertises the default cap (12) in snippet, guidelines and schema", () => {
+		const { pi, captured } = createMockPi();
+		registerAskUserQuestionTool(pi);
+		const tool = captured.tools.get(TOOL_NAME)!;
+		expect(tool.promptSnippet).toContain("up to 12 structured questions");
+		expect((tool.promptGuidelines as string[])[0]).toContain("up to 12 questions per invocation");
+		const params = tool.parameters as { properties: { questions: { maxItems: number } } };
+		expect(params.properties.questions.maxItems).toBe(12);
+	});
+
+	it("threads a configured cap through snippet, guidelines, schema and validation", async () => {
+		writeConfig({ maxQuestions: 5 });
+		const { pi, captured } = createMockPi();
+		registerAskUserQuestionTool(pi);
+		const tool = captured.tools.get(TOOL_NAME)!;
+		expect(tool.promptSnippet).toBe(buildPromptSnippet(5));
+		expect(tool.promptGuidelines).toEqual(buildPromptGuidelines(5));
+		const params = tool.parameters as { properties: { questions: { maxItems: number } } };
+		expect(params.properties.questions.maxItems).toBe(5);
+
+		const ctx = { hasUI: true, ui: { custom: async () => null } };
+		const r = (await tool.execute?.(
+			"tc",
+			{ questions: questions(6) } as never,
+			undefined as never,
+			undefined as never,
+			ctx as never,
+		)) as { details: { error?: string }; content: Array<{ text: string }> };
+		expect(r.details.error).toBe("too_many_questions");
+		expect(r.content[0]?.text).toContain("At most 5 questions");
+	});
+
+	it("keeps a user-supplied promptSnippet verbatim even with a custom cap", () => {
+		writeConfig({ maxQuestions: 5, guidance: { promptSnippet: "Mine" } });
+		const { pi, captured } = createMockPi();
+		registerAskUserQuestionTool(pi);
+		expect(captured.tools.get(TOOL_NAME)!.promptSnippet).toBe("Mine");
 	});
 });

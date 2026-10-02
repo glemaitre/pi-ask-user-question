@@ -1,7 +1,12 @@
 import { type Static, Type } from "typebox";
 import { LABELS_BY_KIND, ROW_INTENT_META } from "../state/row-intent.js";
 
-export const MAX_QUESTIONS = 4;
+/** Default per-invocation question cap (override with `maxQuestions` in config.json). */
+export const DEFAULT_MAX_QUESTIONS = 12;
+/** Hard ceiling for the configurable cap — keeps the tab strip and Submit review usable. */
+export const MAX_QUESTIONS_CEILING = 50;
+/** @deprecated alias of `DEFAULT_MAX_QUESTIONS`; prefer the resolved config value. */
+export const MAX_QUESTIONS = DEFAULT_MAX_QUESTIONS;
 export const MIN_OPTIONS = 2;
 export const MAX_OPTIONS = 4;
 export const MAX_HEADER_LENGTH = 16;
@@ -78,15 +83,24 @@ export const QuestionSchema = Type.Object({
 	),
 });
 
-export const QuestionsSchema = Type.Array(QuestionSchema, {
-	minItems: 1,
-	maxItems: MAX_QUESTIONS,
-	description: "Questions to ask the user (1-4 questions)",
-});
+export function buildQuestionsSchema(maxQuestions: number = DEFAULT_MAX_QUESTIONS) {
+	return Type.Array(QuestionSchema, {
+		minItems: 1,
+		maxItems: maxQuestions,
+		description: `Questions to ask the user (1-${maxQuestions} questions)`,
+	});
+}
 
-export const QuestionParamsSchema = Type.Object({
-	questions: QuestionsSchema,
-});
+/** Tool parameter schema with the question cap baked into `maxItems` and the description. */
+export function buildQuestionParamsSchema(maxQuestions: number = DEFAULT_MAX_QUESTIONS) {
+	return Type.Object({
+		questions: buildQuestionsSchema(maxQuestions),
+	});
+}
+
+export const QuestionsSchema = buildQuestionsSchema(DEFAULT_MAX_QUESTIONS);
+
+export const QuestionParamsSchema = buildQuestionParamsSchema(DEFAULT_MAX_QUESTIONS);
 
 export type OptionData = Static<typeof OptionSchema>;
 export type QuestionData = Static<typeof QuestionSchema>;

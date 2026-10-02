@@ -1,7 +1,10 @@
-import { MAX_QUESTIONS, MIN_OPTIONS, type QuestionnaireError, type QuestionParams, RESERVED_LABELS } from "./types.js";
+import { DEFAULT_MAX_QUESTIONS, MIN_OPTIONS, type QuestionnaireError, type QuestionParams, RESERVED_LABELS } from "./types.js";
 
 export const ERROR_NO_QUESTIONS = "Error: At least one question is required";
-export const ERROR_TOO_MANY_QUESTIONS = `Error: At most ${MAX_QUESTIONS} questions are allowed per invocation`;
+export function tooManyQuestionsMessage(maxQuestions: number): string {
+	return `Error: At most ${maxQuestions} questions are allowed per invocation`;
+}
+export const ERROR_TOO_MANY_QUESTIONS = tooManyQuestionsMessage(DEFAULT_MAX_QUESTIONS);
 export const ERROR_DUPLICATE_QUESTION = "Error: Question text must be unique within an invocation";
 export const ERROR_TOO_FEW_OPTIONS = `Error: Each question requires at least ${MIN_OPTIONS} options`;
 export const ERROR_RESERVED_LABEL = `Error: Option label is reserved (${RESERVED_LABELS.join(", ")})`;
@@ -16,12 +19,15 @@ export type ValidationResult = { ok: true } | { ok: false; error: QuestionnaireE
  * `no_ui` (which depends on `ctx.hasUI` and stays inline at the call site).
  * `reserved_label` MUST short-circuit before `duplicate_option_label`.
  */
-export function validateQuestionnaire(typed: QuestionParams): ValidationResult {
+export function validateQuestionnaire(
+	typed: QuestionParams,
+	maxQuestions: number = DEFAULT_MAX_QUESTIONS,
+): ValidationResult {
 	if (typed.questions.length === 0) {
 		return { ok: false, error: "no_questions", message: ERROR_NO_QUESTIONS };
 	}
-	if (typed.questions.length > MAX_QUESTIONS) {
-		return { ok: false, error: "too_many_questions", message: ERROR_TOO_MANY_QUESTIONS };
+	if (typed.questions.length > maxQuestions) {
+		return { ok: false, error: "too_many_questions", message: tooManyQuestionsMessage(maxQuestions) };
 	}
 
 	const seenQuestions = new Set<string>();

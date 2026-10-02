@@ -58,7 +58,7 @@ submit-readiness prompt, incomplete-answers warning, and committed-note `Note` l
 preview pane's empty and notes-affordance lines, the notes header and the global-note
 header on the Submit tab, the
 external-editor failure notification, and the two RPC dialog prompts. Twenty-six keys in total,
-all under the namespace `@juicesharp/rpiv-ask-user-question`.
+all under the namespace `pi-ask-user-question`.
 
 Everything the *model* reads stays English by design: the tool description, the parameter
 schema descriptions, error messages, and the reserved-label list. Those are prompt inputs,

@@ -97,6 +97,24 @@ and a bordered monospace preview box on the right — but only when both the ter
 the dialog pane are at least 100 columns wide. Below that, the preview stacks underneath
 the options instead.
 
+### Many questions: the windowed tab strip
+
+When the tab strip (one tab per question plus Submit) is wider than the terminal, it
+switches to a windowed view instead of clipping at the right edge:
+
+```
+ ← [7/13] ‹5  ■ Approach  [ □ Storage ]  □ Caching   □ Logging  3›  ✓ Submit  →
+```
+
+- The focused tab is always visible; the window grows around it to fill the width.
+  On the Submit tab the window anchors on the last question.
+- `Submit` stays pinned on the right.
+- `[7/13]` is the focused tab's position among all tabs (questions + Submit).
+- `‹5` / `3›` count the question tabs hidden on each side. A marker is colored as a
+  warning while any tab it hides is unanswered, and as success once they all are.
+
+When everything fits, the strip renders exactly as before — no counter, no markers.
+
 When the dialog is taller than the terminal, the body scrolls between a sticky heading and
 a sticky footer, and an overflow indicator shows which direction is clipped: `↑` for
 content above, `↓` for content below, `↕` for both.

@@ -8,7 +8,27 @@ import {
 	formatKeySpecForDisplay,
 	loadConfig,
 	resolveCollapseKey,
+	resolveMaxQuestions,
 } from "./config.js";
+import { DEFAULT_MAX_QUESTIONS, MAX_QUESTIONS_CEILING } from "./tool/types.js";
+
+describe("resolveMaxQuestions", () => {
+	it("returns the default when unset", () => {
+		expect(resolveMaxQuestions({})).toBe(DEFAULT_MAX_QUESTIONS);
+	});
+
+	it("accepts integers within [1, ceiling]", () => {
+		expect(resolveMaxQuestions({ maxQuestions: 1 })).toBe(1);
+		expect(resolveMaxQuestions({ maxQuestions: 20 })).toBe(20);
+		expect(resolveMaxQuestions({ maxQuestions: MAX_QUESTIONS_CEILING })).toBe(MAX_QUESTIONS_CEILING);
+	});
+
+	it("falls back to the default on out-of-range, fractional or non-number values", () => {
+		for (const bad of [0, -3, MAX_QUESTIONS_CEILING + 1, 2.5, Number.NaN, "8", null]) {
+			expect(resolveMaxQuestions({ maxQuestions: bad as never })).toBe(DEFAULT_MAX_QUESTIONS);
+		}
+	});
+});
 
 describe("formatKeySpecForDisplay", () => {
 	it("capitalizes each +-part of a resolved spec", () => {

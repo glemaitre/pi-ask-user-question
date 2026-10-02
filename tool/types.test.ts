@@ -5,7 +5,10 @@ import {
 	MAX_HEADER_LENGTH,
 	MAX_LABEL_LENGTH,
 	MAX_OPTIONS,
+	buildQuestionParamsSchema,
+	DEFAULT_MAX_QUESTIONS,
 	MAX_QUESTIONS,
+	MAX_QUESTIONS_CEILING,
 	MIN_OPTIONS,
 	type QuestionAnswer,
 	type QuestionData,
@@ -41,10 +44,24 @@ describe("QuestionsSchema — array constraints", () => {
 		expect(Value.Check(QuestionsSchema, [])).toBe(false);
 	});
 
-	it("rejects > MAX_QUESTIONS items (maxItems=4)", () => {
-		const five = [makeQuestion(), makeQuestion(), makeQuestion(), makeQuestion(), makeQuestion()];
-		expect(Value.Check(QuestionsSchema, five)).toBe(false);
-		expect(MAX_QUESTIONS).toBe(4);
+	it("accepts DEFAULT_MAX_QUESTIONS (12) questions and rejects one more", () => {
+		expect(DEFAULT_MAX_QUESTIONS).toBe(12);
+		expect(MAX_QUESTIONS).toBe(DEFAULT_MAX_QUESTIONS);
+		const atCap = Array.from({ length: DEFAULT_MAX_QUESTIONS }, () => makeQuestion());
+		expect(Value.Check(QuestionsSchema, atCap)).toBe(true);
+		expect(Value.Check(QuestionsSchema, [...atCap, makeQuestion()])).toBe(false);
+	});
+
+	it("buildQuestionParamsSchema bakes a custom cap into maxItems and the description", () => {
+		const schema = buildQuestionParamsSchema(20);
+		const twenty = Array.from({ length: 20 }, () => makeQuestion());
+		expect(Value.Check(schema, { questions: twenty })).toBe(true);
+		expect(Value.Check(schema, { questions: [...twenty, makeQuestion()] })).toBe(false);
+		expect((schema.properties.questions as { description?: string }).description).toBe("Questions to ask the user (1-20 questions)");
+	});
+
+	it("ceiling is above the default", () => {
+		expect(MAX_QUESTIONS_CEILING).toBeGreaterThan(DEFAULT_MAX_QUESTIONS);
 	});
 });
 

@@ -21,7 +21,7 @@ ask_user_question({
       ],
       multiSelect?: boolean,       // default false
     },
-    // … 1-4 questions total
+    // … 1-12 questions total (configurable via `maxQuestions`)
   ]
 })
 ```
@@ -30,7 +30,7 @@ ask_user_question({
 
 | Field | Constraint | Enforced by |
 | --- | --- | --- |
-| `questions` | 1-4 entries | TypeBox schema + `validateQuestionnaire` |
+| `questions` | 1-12 entries by default; `maxQuestions` config (1-50) | TypeBox schema + `validateQuestionnaire` |
 | `questions[].header` | max 16 characters | TypeBox schema only |
 | `questions[].options` | 2-4 entries | TypeBox schema (both bounds) + `validateQuestionnaire` (minimum only) |
 | `options[].label` | max 60 characters | TypeBox schema only |
@@ -55,7 +55,7 @@ code. The `content[0].text` string is written for the model, not for a log.
 | `error` | Cause |
 | --- | --- |
 | `no_questions` | `questions` was empty |
-| `too_many_questions` | more than 4 questions in one call |
+| `too_many_questions` | more questions than the configured `maxQuestions` (default 12) in one call |
 | `duplicate_question` | two questions with identical text |
 | `empty_options` | a question carried fewer than 2 options |
 | `reserved_label` | an option used a reserved label |
@@ -110,7 +110,7 @@ The package publishes one event on Pi's event bus, emitted after validation pass
 before the dialog is shown. Import it from the `/events` subpath:
 
 ```ts
-import { ASK_USER_PROMPT_EVENT, type AskUserPromptEventPayload } from "@juicesharp/rpiv-ask-user-question/events";
+import { ASK_USER_PROMPT_EVENT, type AskUserPromptEventPayload } from "pi-ask-user-question/events";
 
 pi.events.on(ASK_USER_PROMPT_EVENT, (payload: AskUserPromptEventPayload) => {
   // payload.questions[].{ question, header, multiSelect, options[] }

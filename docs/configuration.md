@@ -6,7 +6,7 @@ wrong.
 ## The config file
 
 ```
-~/.config/rpiv-ask-user-question/config.json
+~/.config/pi-ask-user-question/config.json
 ```
 
 The file is optional — with no config at all, every setting takes its default. This
@@ -18,6 +18,7 @@ A complete example:
 ```json
 {
   "collapseKey": "alt+o",
+  "maxQuestions": 20,
   "guidance": {
     "description": "Ask the user structured questions whenever requirements are ambiguous.",
     "promptSnippet": "Ask me before guessing on anything ambiguous",
@@ -31,10 +32,10 @@ A complete example:
 
 ### Where the file is looked up
 
-1. `$XDG_CONFIG_HOME/rpiv-ask-user-question/config.json`, if `XDG_CONFIG_HOME` is set,
+1. `$XDG_CONFIG_HOME/pi-ask-user-question/config.json`, if `XDG_CONFIG_HOME` is set,
    non-empty and absolute. A leading `~` is expanded first; a relative value is ignored.
    Unset or ignored, the directory falls back to `~/.config`.
-2. If that file does not exist, the legacy path `~/.config/rpiv-ask-user-question/config.json`
+2. If that file does not exist, the legacy path `~/.config/pi-ask-user-question/config.json`
    is read. This path deliberately ignores `XDG_CONFIG_HOME`, so an existing config keeps
    working after you set the variable.
 3. Neither present: all defaults.
@@ -59,6 +60,7 @@ type are likewise dropped back to their default without a warning.
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `collapseKey` | Key that collapses and expands the dialog overlay. | `"ctrl+]"` |
+| `maxQuestions` | Maximum questions per `ask_user_question` call. Integer from 1 to 50; flows into the parameter schema (`maxItems`), the built-in prompt snippet/guidelines, and the runtime validator. Any other value falls back to the default. | `12` |
 | `guidance.description` | Full text of the tool description the model sees. Replaces the built-in default entirely — no merging. | built-in description |
 | `guidance.promptSnippet` | One-line snippet describing the tool in the system prompt. | built-in snippet |
 | `guidance.promptGuidelines` | List of usage guidelines given to the model. | 4 built-in guidelines |

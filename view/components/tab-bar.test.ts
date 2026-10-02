@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { makeTheme } from "../../test/utils/index.js";
 import { describe, expect, it, vi } from "vitest";
-import { TabBar, type TabBarProps } from "./tab-bar.js";
+import { computeTabWindow, TabBar, type TabBarProps } from "./tab-bar.js";
 
 const theme = makeTheme() as unknown as Theme;
 
@@ -126,5 +126,99 @@ describe("TabBar.render", () => {
 		const after = tb.render(80)[0];
 		expect(before).not.toBe(after);
 		expect(after.match(/■/g)?.length).toBe(1);
+	});
+});
+
+function manyQuestions(n: number) {
+	return Array.from({ length: n }, (_, i) => ({ header: `Header${i + 1}`, question: `q${i + 1}` }));
+}
+
+describe("computeTabWindow", () => {
+	it("returns the full range when everything fits", () => {
+		expect(computeTabWindow([5, 5, 5], 1, 100)).toEqual({ start: 0, end: 3 });
+	});
+
+	it("always contains the anchor, even when the budget is too small", () => {
+		expect(computeTabWindow([10, 10, 10], 2, 0)).toEqual({ start: 2, end: 3 });
+	});
+
+	it("grows around the anchor and charges overflow markers against the budget", () => {
+		// 10 segments of width 10; markers "‹N " / "N› " are 3 cols each for N < 10.
+		const widths = Array<number>(10).fill(10);
+		const w = computeTabWindow(widths, 5, 36);
+		expect(w.start).toBeLessThanOrEqual(5);
+		expect(w.end).toBeGreaterThan(5);
+		expect(w.end - w.start).toBe(3); // 3*10 + 3 + 3 = 36
+	});
+
+	it("spends the whole budget on one side when the anchor sits at an edge", () => {
+		const widths = Array<number>(10).fill(10);
+		expect(computeTabWindow(widths, 0, 43)).toEqual({ start: 0, end: 4 }); // 40 + right marker 3
+		expect(computeTabWindow(widths, 9, 43)).toEqual({ start: 6, end: 10 }); // 40 + left marker 3
+	});
+
+	it("handles an empty tab list", () => {
+		expect(computeTabWindow([], 0, 50)).toEqual({ start: 0, end: 0 });
+	});
+});
+
+describe("TabBar.render — windowed strip for many questions", () => {
+	it("renders the classic strip (no counter, no markers) when everything fits", () => {
+		const tb = makeBar(buildProps());
+		const line = tb.render(200)[0];
+		expect(line).not.toMatch(/\[\d+\/\d+\]/);
+		expect(line).not.toContain("‹");
+		expect(line).not.toContain("›");
+	});
+
+	it("keeps every active tab visible and within width, for every width", () => {
+		const questions = manyQuestions(12);
+		for (const width of [40, 60, 80, 100, 120]) {
+			for (let active = 0; active <= questions.length; active++) {
+				const tb = makeBar(buildProps({ questions, activeTabIndex: active }));
+				const line = tb.render(width)[0];
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				expect(line).toContain("Submit");
+				if (active < questions.length) expect(line).toContain(`Header${active + 1} `);
+				else expect(line).toContain("Header12 "); // Submit focus anchors on the last question
+				expect(line).toContain(`[${active + 1}/13]`);
+			}
+		}
+	});
+
+	it("shows only a right marker on the first tab and only a left marker on Submit", () => {
+		const questions = manyQuestions(12);
+		const first = makeBar(buildProps({ questions, activeTabIndex: 0 })).render(80)[0];
+		expect(first).not.toContain("‹");
+		expect(first).toMatch(/\d+› /);
+
+		const submit = makeBar(buildProps({ questions, activeTabIndex: 12 })).render(80)[0];
+		expect(submit).toMatch(/‹\d+ /);
+		expect(submit).not.toContain("›");
+	});
+
+	it("hidden counts plus visible tabs add up to the total", () => {
+		const questions = manyQuestions(20);
+		const line = makeBar(buildProps({ questions, activeTabIndex: 10 })).render(80)[0];
+		const left = Number(/‹(\d+) /.exec(line)?.[1] ?? 0);
+		const right = Number(/(\d+)› /.exec(line)?.[1] ?? 0);
+		const visible = (line.match(/[□■]/g) ?? []).length;
+		expect(left + visible + right).toBe(20);
+		expect(left).toBeGreaterThan(0);
+		expect(right).toBeGreaterThan(0);
+	});
+
+	it("colors a marker warning while any hidden tab is unanswered, success once all are answered", () => {
+		const questions = manyQuestions(12);
+		const spy = vi.spyOn(theme, "fg");
+		makeBar(buildProps({ questions, activeTabIndex: 0 })).render(60);
+		expect(spy).toHaveBeenCalledWith("warning", expect.stringMatching(/\d+› /));
+
+		spy.mockClear();
+		const all = questions.map((_, i) => i);
+		makeBar(buildProps({ questions, activeTabIndex: 0, answeredIndices: all })).render(60);
+		expect(spy).toHaveBeenCalledWith("success", expect.stringMatching(/\d+› /));
+		expect(spy).not.toHaveBeenCalledWith("warning", expect.anything());
+		spy.mockRestore();
 	});
 });
