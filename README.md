@@ -1,5 +1,7 @@
 # pi-ask-user-question
 
+[![Test](https://github.com/glemaitre/pi-ask-user-question/actions/workflows/test.yml/badge.svg)](https://github.com/glemaitre/pi-ask-user-question/actions/workflows/test.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A fork of [`@juicesharp/rpiv-ask-user-question`](https://www.npmjs.com/package/@juicesharp/rpiv-ask-user-question) (v2.12.0, MIT) that **scales past four questions**:
 
 - **Configurable question cap** — default raised from 4 to **12**, adjustable with `maxQuestions` (1–50) in the config file. The cap flows into the tool schema (`maxItems`), the prompt snippet/guidelines the model sees, and the runtime validator.
@@ -18,7 +20,8 @@ Let the model ask you instead of guessing. This extension gives [Pi Agent](https
 ## Install
 
 ```sh
-pi install /path/to/pi-ask-user-question
+pi install git:github.com/glemaitre/pi-ask-user-question
+pi install ./pi-ask-user-question          # local checkout
 ```
 
 Restart your Pi session.

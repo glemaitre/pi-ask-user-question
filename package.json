@@ -1,7 +1,7 @@
 {
 	"name": "pi-ask-user-question",
 	"version": "0.1.0",
-	"description": "Pi extension. Structured questionnaire tool (ask_user_question) that scales past 4 questions — fork of @juicesharp/rpiv-ask-user-question with a configurable question cap and a windowed tab bar.",
+	"description": "Pi extension. Structured questionnaire tool (ask_user_question) that scales past 4 questions \u2014 fork of @juicesharp/rpiv-ask-user-question with a configurable question cap and a windowed tab bar.",
 	"keywords": [
 		"pi-package",
 		"pi-extension",
@@ -96,5 +96,13 @@
 		"typebox": "1.3.6",
 		"typescript": "6.0.3",
 		"vitest": "4.1.10"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/glemaitre/pi-ask-user-question.git"
+	},
+	"homepage": "https://github.com/glemaitre/pi-ask-user-question#readme",
+	"bugs": {
+		"url": "https://github.com/glemaitre/pi-ask-user-question/issues"
 	}
 }
