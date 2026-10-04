@@ -5,6 +5,7 @@ import {
 	formatKeySpecForDisplay,
 	loadConfig,
 	resolveCollapseKey,
+	resolveMaxOptions,
 	resolveMaxQuestions,
 	validateGuidanceFields,
 } from "./config.js";
@@ -23,8 +24,8 @@ import { normalizeQuestionParams } from "./tool/normalize-params.js";
 import { buildQuestionnaireResponse, buildToolResult } from "./tool/response-envelope.js";
 import {
 	buildQuestionParamsSchema,
+	DEFAULT_MAX_OPTIONS,
 	DEFAULT_MAX_QUESTIONS,
-	MAX_OPTIONS,
 	MIN_OPTIONS,
 	type QuestionData,
 	type QuestionnaireError,
@@ -273,21 +274,27 @@ export function buildItemsForQuestion(question: QuestionData): WrappingSelectIte
 	return items;
 }
 
-export function buildPromptSnippet(maxQuestions: number = DEFAULT_MAX_QUESTIONS): string {
-	return `Ask the user up to ${maxQuestions} structured questions (${MIN_OPTIONS}-${MAX_OPTIONS} options each) when requirements are ambiguous`;
+export function buildPromptSnippet(
+	maxQuestions: number = DEFAULT_MAX_QUESTIONS,
+	maxOptions: number = DEFAULT_MAX_OPTIONS,
+): string {
+	return `Ask the user up to ${maxQuestions} structured questions (${MIN_OPTIONS}-${maxOptions} options each) when requirements are ambiguous`;
 }
 
-export function buildPromptGuidelines(maxQuestions: number = DEFAULT_MAX_QUESTIONS): string[] {
+export function buildPromptGuidelines(
+	maxQuestions: number = DEFAULT_MAX_QUESTIONS,
+	maxOptions: number = DEFAULT_MAX_OPTIONS,
+): string[] {
 	return [
 		`Use ask_user_question whenever the user's request is underspecified and you cannot proceed without concrete decisions — you can ask up to ${maxQuestions} questions per invocation.`,
-		`Each question MUST have ${MIN_OPTIONS}-${MAX_OPTIONS} options. Every option requires a concise label (1-5 words) and a description explaining what the choice means or its trade-offs. The user can additionally type a custom answer via the automatically appended "Type something." row on every question, or press Esc to abandon the questionnaire. Do NOT author "Other" or "Type something." labels yourself — reserved labels are rejected at runtime.`,
+		`Each question MUST have ${MIN_OPTIONS}-${maxOptions} options. Every option requires a concise label (1-5 words) and a description explaining what the choice means or its trade-offs. The user can additionally type a custom answer via the automatically appended "Type something." row on every question, or press Esc to abandon the questionnaire. Do NOT author "Other" or "Type something." labels yourself — reserved labels are rejected at runtime.`,
 		`Set multiSelect: true when multiple answers are valid. Provide an options[].preview markdown string when an option benefits from richer side-by-side context (mockups, code snippets, diagrams, configs) — single-select only. The "Type something." row is appended to every question; in preview mode it expands to the full pane width while typing so the custom answer is not cramped into the narrow options column. If you recommend a specific option, make that the first option and append "(Recommended)" to its label.`,
 		"Do not stack multiple ask_user_question calls back-to-back — group all clarifying questions into one invocation.",
 	];
 }
 
-export const DEFAULT_PROMPT_SNIPPET = buildPromptSnippet(DEFAULT_MAX_QUESTIONS);
-export const DEFAULT_PROMPT_GUIDELINES: string[] = buildPromptGuidelines(DEFAULT_MAX_QUESTIONS);
+export const DEFAULT_PROMPT_SNIPPET = buildPromptSnippet(DEFAULT_MAX_QUESTIONS, DEFAULT_MAX_OPTIONS);
+export const DEFAULT_PROMPT_GUIDELINES: string[] = buildPromptGuidelines(DEFAULT_MAX_QUESTIONS, DEFAULT_MAX_OPTIONS);
 
 export const DEFAULT_TOOL_DESCRIPTION = `Ask the user one or more structured questions during execution. Use when you need to:
 1. Gather user preferences or requirements
@@ -313,15 +320,16 @@ export function registerAskUserQuestionTool(pi: ExtensionAPI): void {
 	const config = loadConfig();
 	const guidance = validateGuidanceFields(config.guidance);
 	// Resolved once at registration: the schema's `maxItems`, the prompt copy and
-	// the runtime validator must all agree on the same cap.
+	// the runtime validator must all agree on the same caps.
 	const maxQuestions = resolveMaxQuestions(config);
+	const maxOptions = resolveMaxOptions(config);
 	pi.registerTool({
 		name: ASK_USER_QUESTION_TOOL_NAME,
 		label: "Ask User Question",
 		description: guidance.description ?? DEFAULT_TOOL_DESCRIPTION,
-		promptSnippet: guidance.promptSnippet ?? buildPromptSnippet(maxQuestions),
-		promptGuidelines: guidance.promptGuidelines ?? buildPromptGuidelines(maxQuestions),
-		parameters: buildQuestionParamsSchema(maxQuestions),
+		promptSnippet: guidance.promptSnippet ?? buildPromptSnippet(maxQuestions, maxOptions),
+		promptGuidelines: guidance.promptGuidelines ?? buildPromptGuidelines(maxQuestions, maxOptions),
+		parameters: buildQuestionParamsSchema(maxQuestions, maxOptions),
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			// Line-terminator normalization runs once here, ahead of validation, so
@@ -330,7 +338,7 @@ export function registerAskUserQuestionTool(pi: ExtensionAPI): void {
 			const typed = normalizeQuestionParams(params as unknown as QuestionParams);
 			if (!ctx.hasUI) return rejectWithoutUi();
 
-			const validation = validateQuestionnaire(typed, maxQuestions);
+			const validation = validateQuestionnaire(typed, maxQuestions, maxOptions);
 			if (!validation.ok) {
 				return buildToolResult(validation.message, {
 					answers: [],

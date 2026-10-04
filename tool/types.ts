@@ -8,7 +8,12 @@ export const MAX_QUESTIONS_CEILING = 50;
 /** @deprecated alias of `DEFAULT_MAX_QUESTIONS`; prefer the resolved config value. */
 export const MAX_QUESTIONS = DEFAULT_MAX_QUESTIONS;
 export const MIN_OPTIONS = 2;
-export const MAX_OPTIONS = 4;
+/** Default per-question option cap (override with `maxOptions` in config.json). */
+export const DEFAULT_MAX_OPTIONS = 12;
+/** Hard ceiling for the configurable option cap — the list windows, so this bounds review/RPC copy, not layout. */
+export const MAX_OPTIONS_CEILING = 50;
+/** @deprecated alias of `DEFAULT_MAX_OPTIONS`; prefer the resolved config value. */
+export const MAX_OPTIONS = DEFAULT_MAX_OPTIONS;
 export const MAX_HEADER_LENGTH = 16;
 export const MAX_LABEL_LENGTH = 60;
 
@@ -59,42 +64,52 @@ export const OptionSchema = Type.Object({
 	),
 });
 
-export const QuestionSchema = Type.Object({
-	question: Type.String({
-		description:
-			'The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"',
-	}),
-	header: Type.String({
-		maxLength: MAX_HEADER_LENGTH,
-		description: `MAX ${MAX_HEADER_LENGTH} CHARACTERS — hard limit, requests over the limit are rejected. Very short chip/tag shown next to the question. Examples: "Auth method", "Library", "Approach".`,
-	}),
-	options: Type.Array(OptionSchema, {
-		minItems: MIN_OPTIONS,
-		maxItems: MAX_OPTIONS,
-		description:
-			"The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). The 'Type something.' row is appended automatically — do NOT author it.",
-	}),
-	multiSelect: Type.Optional(
-		Type.Boolean({
-			default: false,
+/** Question schema with the per-question option cap baked into `maxItems` and the description. */
+export function buildQuestionSchema(maxOptions: number = DEFAULT_MAX_OPTIONS) {
+	return Type.Object({
+		question: Type.String({
 			description:
-				"Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.",
+				'The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"',
 		}),
-	),
-});
+		header: Type.String({
+			maxLength: MAX_HEADER_LENGTH,
+			description: `MAX ${MAX_HEADER_LENGTH} CHARACTERS — hard limit, requests over the limit are rejected. Very short chip/tag shown next to the question. Examples: "Auth method", "Library", "Approach".`,
+		}),
+		options: Type.Array(OptionSchema, {
+			minItems: MIN_OPTIONS,
+			maxItems: maxOptions,
+			description: `The available choices for this question. Must have ${MIN_OPTIONS}-${maxOptions} options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). The 'Type something.' row is appended automatically — do NOT author it.`,
+		}),
+		multiSelect: Type.Optional(
+			Type.Boolean({
+				default: false,
+				description:
+					"Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.",
+			}),
+		),
+	});
+}
 
-export function buildQuestionsSchema(maxQuestions: number = DEFAULT_MAX_QUESTIONS) {
-	return Type.Array(QuestionSchema, {
+export const QuestionSchema = buildQuestionSchema(DEFAULT_MAX_OPTIONS);
+
+export function buildQuestionsSchema(
+	maxQuestions: number = DEFAULT_MAX_QUESTIONS,
+	maxOptions: number = DEFAULT_MAX_OPTIONS,
+) {
+	return Type.Array(buildQuestionSchema(maxOptions), {
 		minItems: 1,
 		maxItems: maxQuestions,
 		description: `Questions to ask the user (1-${maxQuestions} questions)`,
 	});
 }
 
-/** Tool parameter schema with the question cap baked into `maxItems` and the description. */
-export function buildQuestionParamsSchema(maxQuestions: number = DEFAULT_MAX_QUESTIONS) {
+/** Tool parameter schema with the question and option caps baked into `maxItems` and the descriptions. */
+export function buildQuestionParamsSchema(
+	maxQuestions: number = DEFAULT_MAX_QUESTIONS,
+	maxOptions: number = DEFAULT_MAX_OPTIONS,
+) {
 	return Type.Object({
-		questions: buildQuestionsSchema(maxQuestions),
+		questions: buildQuestionsSchema(maxQuestions, maxOptions),
 	});
 }
 
@@ -140,6 +155,7 @@ export type QuestionnaireError =
 	| "no_questions"
 	| "empty_options"
 	| "too_many_questions"
+	| "too_many_options"
 	| "duplicate_question"
 	| "duplicate_option_label"
 	| "reserved_label"

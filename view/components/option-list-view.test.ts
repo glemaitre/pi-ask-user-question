@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER } from "@earendil-works/pi-tui";
 import { makeTheme } from "../../test/utils/index.js";
 import { describe, expect, it } from "vitest";
-import { MAX_VISIBLE_OPTIONS, OptionListView, type OptionListViewProps } from "./option-list-view.js";
+import { MAX_VISIBLE_ROWS, OptionListView, type OptionListViewProps } from "./option-list-view.js";
 import type { WrappingSelectItem } from "./wrapping-select.js";
 
 const baseTheme = makeTheme() as unknown as Theme;
@@ -91,7 +91,22 @@ describe("OptionListView — confirmed-index passthrough", () => {
 });
 
 describe("OptionListView — visible-window cap", () => {
-	it("MAX_VISIBLE_OPTIONS is 10", () => {
-		expect(MAX_VISIBLE_OPTIONS).toBe(10);
+	it("MAX_VISIBLE_ROWS is 20", () => {
+		expect(MAX_VISIBLE_ROWS).toBe(20);
+	});
+
+	it("caps a 30-option list at the row budget and keeps the focused row visible", () => {
+		const many = Array.from({ length: 30 }, (_, i) => ({
+			kind: "option" as const,
+			label: `opt-${i + 1}`,
+			description: `desc-${i + 1}`,
+		}));
+		const v = makeView(many);
+		for (const idx of [0, 7, 15, 29]) {
+			v.setProps(props({ selectedIndex: idx }));
+			const lines = v.render(40);
+			expect(lines.length).toBe(MAX_VISIBLE_ROWS);
+			expect(lines.some((l) => l.includes(`❯ ${String(idx + 1).padStart(2, " ")}. opt-${idx + 1}`))).toBe(true);
+		}
 	});
 });

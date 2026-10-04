@@ -8,9 +8,28 @@ import {
 	formatKeySpecForDisplay,
 	loadConfig,
 	resolveCollapseKey,
+	resolveMaxOptions,
 	resolveMaxQuestions,
 } from "./config.js";
-import { DEFAULT_MAX_QUESTIONS, MAX_QUESTIONS_CEILING } from "./tool/types.js";
+import { DEFAULT_MAX_OPTIONS, DEFAULT_MAX_QUESTIONS, MAX_OPTIONS_CEILING, MAX_QUESTIONS_CEILING } from "./tool/types.js";
+
+describe("resolveMaxOptions", () => {
+	it("returns the default when unset", () => {
+		expect(resolveMaxOptions({})).toBe(DEFAULT_MAX_OPTIONS);
+	});
+
+	it("accepts integers within [2, ceiling]", () => {
+		expect(resolveMaxOptions({ maxOptions: 2 })).toBe(2);
+		expect(resolveMaxOptions({ maxOptions: 4 })).toBe(4);
+		expect(resolveMaxOptions({ maxOptions: MAX_OPTIONS_CEILING })).toBe(MAX_OPTIONS_CEILING);
+	});
+
+	it("falls back to the default on out-of-range, fractional or non-number values", () => {
+		for (const bad of [0, 1, -3, MAX_OPTIONS_CEILING + 1, 2.5, Number.NaN, "8", null]) {
+			expect(resolveMaxOptions({ maxOptions: bad as never })).toBe(DEFAULT_MAX_OPTIONS);
+		}
+	});
+});
 
 describe("resolveMaxQuestions", () => {
 	it("returns the default when unset", () => {

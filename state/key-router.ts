@@ -5,6 +5,8 @@ import type { QuestionnaireRuntime, QuestionnaireState } from "./state.js";
 
 const KEYBIND_UP = "tui.select.up";
 const KEYBIND_DOWN = "tui.select.down";
+const KEYBIND_PAGE_UP = "tui.select.pageUp";
+const KEYBIND_PAGE_DOWN = "tui.select.pageDown";
 const KEYBIND_CONFIRM = "tui.select.confirm";
 const KEYBIND_SUBMIT = "tui.input.submit";
 const KEYBIND_CANCEL = "tui.select.cancel";
@@ -16,6 +18,13 @@ const KEYBIND_EXTERNAL_EDITOR = "app.editor.external";
 
 const NOTES_ACTIVATE_KEY = "n";
 const SPACE_KEY = " ";
+
+/**
+ * Rows skipped by PageUp/PageDown. Fixed (rather than "one rendered window") so the
+ * router stays a pure function of state — the window size depends on how labels and
+ * descriptions wrap at the current width, which only the view layer knows.
+ */
+export const PAGE_STEP = 5;
 
 export type QuestionnaireAction =
 	| { kind: "nav"; nextIndex: number; inputValue: string }
@@ -150,6 +159,22 @@ function prevNavOnUp(state: QuestionnaireState, runtime: QuestionnaireRuntime): 
 	};
 }
 
+// PageUp/PageDown jump PAGE_STEP rows and CLAMP at the ends (no wrap): a page jump that
+// wrapped would teleport the cursor from the bottom of a long list to the top.
+function pageNav(
+	kb: QuestionnaireKeybindings,
+	data: string,
+	state: QuestionnaireState,
+	runtime: QuestionnaireRuntime,
+): QuestionnaireAction | null {
+	const delta = kb.matches(data, KEYBIND_PAGE_DOWN) ? PAGE_STEP : kb.matches(data, KEYBIND_PAGE_UP) ? -PAGE_STEP : 0;
+	if (delta === 0) return null;
+	const last = Math.max(0, runtime.items.length - 1);
+	const nextIndex = Math.max(0, Math.min(last, state.optionIndex + delta));
+	if (nextIndex === state.optionIndex) return { kind: "ignore" };
+	return { kind: "nav", nextIndex, inputValue: runtime.inputBuffer };
+}
+
 // Collapsed-mode lockout: while collapsed, swallow every keystroke except cancel so
 // the user can read the now-uncovered transcript without accidentally mutating
 // answers or notes. The collapse toggle itself is already handled above.
@@ -188,7 +213,7 @@ function routeInputMode(
 	if (kb.matches(data, KEYBIND_EDITOR_DOWN) && runtime.canMoveInputDown) return { kind: "ignore" };
 	if (kb.matches(data, KEYBIND_UP)) return prevNavOnUp(state, runtime);
 	if (kb.matches(data, KEYBIND_DOWN)) return nextNavOnDown(state, runtime);
-	return { kind: "ignore" };
+	return pageNav(kb, data, state, runtime) ?? { kind: "ignore" };
 }
 
 function routeSubmitTab(
@@ -347,6 +372,8 @@ export function routeKey(data: string, state: QuestionnaireState, runtime: Quest
 	if (kb.matches(data, KEYBIND_DOWN)) {
 		return nextNavOnDown(state, runtime);
 	}
+	const page = pageNav(kb, data, state, runtime);
+	if (page) return page;
 
 	if (q.multiSelect) return routeMultiSelectTab(kb, data, state, runtime);
 	return routeSingleSelectTab(kb, data, state, runtime);

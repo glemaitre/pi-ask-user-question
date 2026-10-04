@@ -1150,3 +1150,57 @@ describe("ask_user_question — 12 questions (default cap) with windowed tab bar
 		expect(r?.details.error).toBe("too_many_questions");
 	});
 });
+
+describe("ask_user_question — long option lists (row-budget window + paging)", () => {
+	const PAGE_DOWN = "\x1b[6~";
+	const PAGE_UP = "\x1b[5~";
+	const twelve = Array.from({ length: 12 }, (_, i) => ({ label: `Opt${i + 1}`, description: `about option ${i + 1}` }));
+
+	it("PageDown/PageUp page through a 12-option question; Enter picks the focused option", async () => {
+		const tool = register();
+		const { custom } = driveCustom((c) => {
+			c.handleInput(PAGE_DOWN); // 0 → 5
+			c.handleInput(PAGE_DOWN); // 5 → 10
+			c.handleInput(PAGE_UP); // 10 → 5
+			c.handleInput(KEY.DOWN); // 5 → 6
+			c.handleInput(KEY.ENTER);
+		});
+		const ctx = { hasUI: true, ui: { custom } } as never;
+		const params = { questions: [{ question: "Pick", header: "Long", options: twelve }] };
+		const r = (await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx)) as ToolResult;
+		expect(r.details.answers[0]).toMatchObject({ kind: "option", answer: "Opt7" });
+	});
+
+	it("keeps the dialog height constant and the focused option visible while scrolling", async () => {
+		const tool = register();
+		const heights = new Set<number>();
+		const { custom } = driveCustom((c, done) => {
+			for (let i = 0; i < 14; i++) {
+				const lines = c.render(120);
+				heights.add(lines.length);
+				expect(lines.some((l) => l.includes("❯"))).toBe(true);
+				c.handleInput(KEY.DOWN);
+			}
+			done({ answers: [], cancelled: true });
+		});
+		const ctx = { hasUI: true, ui: { custom } } as never;
+		const params = { questions: [{ question: "Pick", header: "Long", options: twelve }] };
+		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
+		expect(heights.size).toBe(1);
+	});
+
+	it("multi-select: PageDown then Space checks an option scrolled into view", async () => {
+		const tool = register();
+		const { custom } = driveCustom((c) => {
+			c.handleInput(PAGE_DOWN); // → Opt6
+			c.handleInput(PAGE_DOWN); // → Opt11
+			c.handleInput(KEY.SPACE);
+			c.handleInput(PAGE_DOWN); // clamps → Next (last row)
+			c.handleInput(KEY.ENTER);
+		});
+		const ctx = { hasUI: true, ui: { custom } } as never;
+		const params = { questions: [{ question: "Pick", header: "Long", multiSelect: true, options: twelve }] };
+		const r = (await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx)) as ToolResult;
+		expect(r.details.answers[0]).toMatchObject({ kind: "multi", selected: ["Opt11"] });
+	});
+});

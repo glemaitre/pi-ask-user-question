@@ -5,6 +5,8 @@ import {
 	MAX_HEADER_LENGTH,
 	MAX_LABEL_LENGTH,
 	MAX_OPTIONS,
+	MAX_OPTIONS_CEILING,
+	DEFAULT_MAX_OPTIONS,
 	buildQuestionParamsSchema,
 	DEFAULT_MAX_QUESTIONS,
 	MAX_QUESTIONS,
@@ -107,16 +109,23 @@ describe("QuestionSchema — option/preview/multiSelect/header shape", () => {
 		expect(Value.Check(QuestionsSchema, [makeQuestion({ options: [] })])).toBe(false);
 	});
 
-	it("rejects more than MAX_OPTIONS options (maxItems=4)", () => {
-		const five = [
-			{ label: "A", description: "alpha" },
-			{ label: "B", description: "beta" },
-			{ label: "C", description: "gamma" },
-			{ label: "D", description: "delta" },
-			{ label: "E", description: "epsilon" },
-		];
-		expect(Value.Check(QuestionsSchema, [makeQuestion({ options: five })])).toBe(false);
-		expect(MAX_OPTIONS).toBe(4);
+	it("accepts up to DEFAULT_MAX_OPTIONS options and rejects more (maxItems=12)", () => {
+		const opts = (n: number) => Array.from({ length: n }, (_, i) => ({ label: `O${i}`, description: `d${i}` }));
+		expect(DEFAULT_MAX_OPTIONS).toBe(12);
+		expect(MAX_OPTIONS).toBe(DEFAULT_MAX_OPTIONS);
+		expect(Value.Check(QuestionsSchema, [makeQuestion({ options: opts(5) })])).toBe(true);
+		expect(Value.Check(QuestionsSchema, [makeQuestion({ options: opts(12) })])).toBe(true);
+		expect(Value.Check(QuestionsSchema, [makeQuestion({ options: opts(13) })])).toBe(false);
+	});
+
+	it("bakes a configured option cap into the params schema", () => {
+		const opts = (n: number) => Array.from({ length: n }, (_, i) => ({ label: `O${i}`, description: `d${i}` }));
+		const schema = buildQuestionParamsSchema(12, 30);
+		expect(Value.Check(schema, { questions: [makeQuestion({ options: opts(30) })] })).toBe(true);
+		expect(Value.Check(schema, { questions: [makeQuestion({ options: opts(31) })] })).toBe(false);
+		const narrow = buildQuestionParamsSchema(12, 4);
+		expect(Value.Check(narrow, { questions: [makeQuestion({ options: opts(5) })] })).toBe(false);
+		expect(MAX_OPTIONS_CEILING).toBe(50);
 	});
 
 	it("rejects an option missing the required description", () => {
@@ -304,7 +313,7 @@ describe("isQuestionnaireResult — type guard", () => {
 describe("schema constants + RESERVED_LABELS", () => {
 	it("exports the new schema constants with expected values", () => {
 		expect(MIN_OPTIONS).toBe(2);
-		expect(MAX_OPTIONS).toBe(4);
+		expect(MAX_OPTIONS).toBe(12);
 		expect(MAX_HEADER_LENGTH).toBe(16);
 		expect(MAX_LABEL_LENGTH).toBe(60);
 	});

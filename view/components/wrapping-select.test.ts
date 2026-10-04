@@ -54,26 +54,54 @@ describe("WrappingSelect.render — visible window", () => {
 		label: `row-${i + 1}`,
 	}));
 
-	it("renders all items when count <= maxVisible", () => {
+	it("renders all items when their rows fit the budget", () => {
 		const s = new WrappingSelect(items.slice(0, 3), 10, identityTheme);
 		const lines = s.render(40);
 		expect(lines.filter((l) => l.includes("row-")).length).toBe(3);
 	});
 
-	it("shows scroll indicator when items exceed maxVisible", () => {
-		const s = new WrappingSelect(items, 5, identityTheme);
+	it("shows ↑/↓ indicators with hidden counts and the position when rows exceed the budget", () => {
+		const s = new WrappingSelect(items, 7, identityTheme);
 		s.setSelectedIndex(10);
 		const lines = s.render(40);
-		expect(lines.some((l) => l.includes("(11/20)"))).toBe(true);
+		expect(lines[0]).toContain("↑ 8 more");
+		expect(lines[lines.length - 1]).toContain("↓ 7 more · 11/20");
 	});
 
 	it("centers window around selectedIndex", () => {
-		const s = new WrappingSelect(items, 5, identityTheme);
+		const s = new WrappingSelect(items, 7, identityTheme);
 		s.setSelectedIndex(10);
 		const lines = s.render(40);
 		expect(lines.some((l) => /\brow-9\b/.test(l))).toBe(true);
-		expect(lines.some((l) => /\brow-11\b/.test(l))).toBe(true);
+		expect(lines.some((l) => /\brow-13\b/.test(l))).toBe(true);
 		expect(lines.some((l) => /\brow-1\b/.test(l))).toBe(false);
+	});
+
+	it("renders exactly maxRows lines while scrolling, even with uneven item heights", () => {
+		const uneven: WrappingSelectItem[] = Array.from({ length: 12 }, (_, i) => ({
+			kind: "option" as const,
+			label: `row-${i + 1}`,
+			description: i % 3 === 0 ? "a long description that wraps over several rows at width 20" : undefined,
+		}));
+		const s = new WrappingSelect(uneven, 10, identityTheme);
+		for (let i = 0; i < uneven.length; i++) {
+			s.setSelectedIndex(i);
+			const lines = s.render(20);
+			expect(lines.length).toBe(10);
+			const [a, b] = s.focusedItemRowRange(20);
+			expect(lines[a]).toContain(`row-${i + 1}`);
+			expect(b).toBeGreaterThan(a);
+		}
+	});
+
+	it("blank top indicator at the start of the list, no ↓ at the end", () => {
+		const s = new WrappingSelect(items, 7, identityTheme);
+		s.setSelectedIndex(0);
+		expect(s.render(40)[0]).toBe("");
+		s.setSelectedIndex(19);
+		const last = s.render(40);
+		expect(last[last.length - 1]).not.toContain("↓");
+		expect(last[last.length - 1]).toContain("20/20");
 	});
 
 	it("returns empty array for zero items", () => {

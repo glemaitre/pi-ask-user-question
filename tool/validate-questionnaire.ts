@@ -1,10 +1,20 @@
-import { DEFAULT_MAX_QUESTIONS, MIN_OPTIONS, type QuestionnaireError, type QuestionParams, RESERVED_LABELS } from "./types.js";
+import {
+	DEFAULT_MAX_OPTIONS,
+	DEFAULT_MAX_QUESTIONS,
+	MIN_OPTIONS, 	type QuestionnaireError,
+	type QuestionParams,
+	RESERVED_LABELS,
+} from "./types.js";
 
 export const ERROR_NO_QUESTIONS = "Error: At least one question is required";
 export function tooManyQuestionsMessage(maxQuestions: number): string {
 	return `Error: At most ${maxQuestions} questions are allowed per invocation`;
 }
 export const ERROR_TOO_MANY_QUESTIONS = tooManyQuestionsMessage(DEFAULT_MAX_QUESTIONS);
+export function tooManyOptionsMessage(maxOptions: number): string {
+	return `Error: At most ${maxOptions} options are allowed per question`;
+}
+export const ERROR_TOO_MANY_OPTIONS = tooManyOptionsMessage(DEFAULT_MAX_OPTIONS);
 export const ERROR_DUPLICATE_QUESTION = "Error: Question text must be unique within an invocation";
 export const ERROR_TOO_FEW_OPTIONS = `Error: Each question requires at least ${MIN_OPTIONS} options`;
 export const ERROR_RESERVED_LABEL = `Error: Option label is reserved (${RESERVED_LABELS.join(", ")})`;
@@ -22,6 +32,7 @@ export type ValidationResult = { ok: true } | { ok: false; error: QuestionnaireE
 export function validateQuestionnaire(
 	typed: QuestionParams,
 	maxQuestions: number = DEFAULT_MAX_QUESTIONS,
+	maxOptions: number = DEFAULT_MAX_OPTIONS,
 ): ValidationResult {
 	if (typed.questions.length === 0) {
 		return { ok: false, error: "no_questions", message: ERROR_NO_QUESTIONS };
@@ -41,6 +52,9 @@ export function validateQuestionnaire(
 	for (const q of typed.questions) {
 		if (q.options.length < MIN_OPTIONS) {
 			return { ok: false, error: "empty_options", message: ERROR_TOO_FEW_OPTIONS };
+		}
+		if (q.options.length > maxOptions) {
+			return { ok: false, error: "too_many_options", message: tooManyOptionsMessage(maxOptions) };
 		}
 		const seenLabels = new Set<string>();
 		for (const o of q.options) {

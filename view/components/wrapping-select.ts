@@ -1,6 +1,7 @@
 import type { Component } from "@earendil-works/pi-tui";
 import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { renderInlineInputRow } from "./inline-input.js";
+import { assembleWindowedList } from "./list-window.js";
 
 /**
  * Row-intent discriminated union. `kind` is the single discriminator —
@@ -49,7 +50,8 @@ export class WrappingSelect implements Component {
 	private static readonly MIN_CONTENT_WIDTH = 1;
 
 	private readonly items: readonly WrappingSelectItem[];
-	private readonly maxVisible: number;
+	/** Row budget (terminal rows, not items) — see `list-window.ts`. */
+	private readonly maxRows: number;
 	private readonly theme: WrappingSelectTheme;
 	private numberStartOffset: number;
 	private totalItemsForNumbering: number;
@@ -74,12 +76,12 @@ export class WrappingSelect implements Component {
 
 	constructor(
 		items: readonly WrappingSelectItem[],
-		maxVisible: number,
+		maxRows: number,
 		theme: WrappingSelectTheme,
 		options: WrappingSelectOptions = {},
 	) {
 		this.items = items;
-		this.maxVisible = Math.max(1, maxVisible);
+		this.maxRows = Math.max(1, maxRows);
 		this.theme = theme;
 		this.numberStartOffset = options.numberStartOffset ?? 0;
 		this.totalItemsForNumbering = options.totalItemsForNumbering ?? items.length;
@@ -133,72 +135,31 @@ export class WrappingSelect implements Component {
 	invalidate(): void {}
 
 	render(width: number): string[] {
-		if (this.items.length === 0) return [];
-
-		const { startIndex, endIndex } = this.computeVisibleWindow();
-		const numberWidth = String(Math.max(1, this.totalItemsForNumbering)).length;
-		const lines: string[] = [];
-
-		for (let i = startIndex; i < endIndex; i++) {
-			const item = this.items[i];
-			if (!item) continue;
-			const isActive = i === this.selectedIndex && this.focused;
-			lines.push(...this.renderItem(item, i, isActive, width, numberWidth));
-		}
-
-		if (this.hasItemsOutsideWindow(startIndex, endIndex)) {
-			lines.push(this.theme.scrollInfo(`  (${this.selectedIndex + 1}/${this.items.length})`));
-		}
-		return lines;
+		return this.layout(width).lines;
 	}
 
 	/**
 	 * Returns the [startRow, endRow) range of the focused (selected) item within
-	 * the output of `render(width)`. Computed by iterating the visible window and
-	 * summing per-item row counts — O(maxVisible) per call.
+	 * the output of `render(width)`. Both derive from the same `layout` call, so
+	 * the range always matches the windowed render (indicator rows included).
 	 */
 	focusedItemRowRange(width: number): [number, number] {
 		if (this.items.length === 0) return [0, 0];
-		const { startIndex, endIndex } = this.computeVisibleWindow();
-		const numberWidth = String(Math.max(1, this.totalItemsForNumbering)).length;
-		let row = 0;
-		for (let i = startIndex; i < endIndex; i++) {
-			const item = this.items[i];
-			if (!item) continue;
-			const isActive = i === this.selectedIndex && this.focused;
-			const itemRowCount = this.computeItemRowCount(item, i, isActive, width, numberWidth);
-			if (i === this.selectedIndex) {
-				return [row, row + itemRowCount];
-			}
-			row += itemRowCount;
-		}
-		return [0, 1];
+		return this.layout(width).focusedRange;
 	}
 
 	/**
-	 * Per-item row count. Delegates to `renderItem().length` so `renderItem` remains
-	 * the single source of truth for per-item row math — eliminates the prior shadow-copy
-	 * that risked silent miscounts when new `kind` values branch in `renderItem` but not here.
+	 * Render every item (n ≤ the configured option cap, so O(n) is cheap), then
+	 * slice a whole-item window that fits the row budget around the selection.
+	 * `renderItem` stays the single source of truth for per-item row math.
 	 */
-	private computeItemRowCount(
-		item: WrappingSelectItem,
-		index: number,
-		isActive: boolean,
-		width: number,
-		numberWidth: number,
-	): number {
-		return this.renderItem(item, index, isActive, width, numberWidth).length;
-	}
-
-	private computeVisibleWindow(): { startIndex: number; endIndex: number } {
-		const half = Math.floor(this.maxVisible / 2);
-		const startIndex = Math.max(0, Math.min(this.selectedIndex - half, this.items.length - this.maxVisible));
-		const endIndex = Math.min(startIndex + this.maxVisible, this.items.length);
-		return { startIndex, endIndex };
-	}
-
-	private hasItemsOutsideWindow(startIndex: number, endIndex: number): boolean {
-		return startIndex > 0 || endIndex < this.items.length;
+	private layout(width: number): { lines: string[]; focusedRange: [number, number] } {
+		if (this.items.length === 0) return { lines: [], focusedRange: [0, 0] };
+		const numberWidth = String(Math.max(1, this.totalItemsForNumbering)).length;
+		const itemLines = this.items.map((item, i) =>
+			this.renderItem(item, i, i === this.selectedIndex && this.focused, width, numberWidth),
+		);
+		return assembleWindowedList(itemLines, this.selectedIndex, this.maxRows, this.theme.scrollInfo);
 	}
 
 	private renderItem(

@@ -1,7 +1,7 @@
 {
 	"name": "pi-ask-user-question",
 	"version": "0.1.0",
-	"description": "Pi extension. Structured questionnaire tool (ask_user_question) that scales past 4 questions \u2014 fork of @juicesharp/rpiv-ask-user-question with a configurable question cap and a windowed tab bar.",
+	"description": "Pi extension. Structured questionnaire tool (ask_user_question) that scales past 4 questions and 4 options \u2014 fork of @juicesharp/rpiv-ask-user-question with configurable question/option caps, a windowed tab bar and scrolling option lists.",
 	"keywords": [
 		"pi-package",
 		"pi-extension",
@@ -52,6 +52,7 @@
 		"tool/validate-questionnaire.ts",
 		"view/component-binding.ts",
 		"view/components/inline-input.ts",
+		"view/components/list-window.ts",
 		"view/components/multi-select-view.ts",
 		"view/components/option-list-view.ts",
 		"view/components/preview/markdown-content-cache.ts",

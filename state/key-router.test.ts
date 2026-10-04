@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { QuestionAnswer, QuestionData } from "../tool/types.js";
 import type { WrappingSelectItem } from "../view/components/wrapping-select.js";
-import { allAnswered, routeKey, wrapTab } from "./key-router.js";
+import { allAnswered, PAGE_STEP, routeKey, wrapTab } from "./key-router.js";
 import type { QuestionnaireRuntime, QuestionnaireState } from "./state.js";
 
 const KEY = {
@@ -15,6 +15,8 @@ const KEY = {
 	EDITOR_DOWN: "tui.editor.cursorDown",
 	CLEAR: "tui.editor.deleteToLineStart",
 	EXTERNAL_EDITOR: "app.editor.external",
+	PAGE_UP: "tui.select.pageUp",
+	PAGE_DOWN: "tui.select.pageDown",
 };
 const sentinel = (name: string) => `<KEY:${name}>`;
 const keybindings = { matches: (data: string, name: string) => data === sentinel(name) };
@@ -982,5 +984,54 @@ describe("routeKey — collapse/expand (Ctrl+] toggle + collapsed-mode lockout)"
 
 		expect(() => routeKey(BYTE_CTRL_RBRACKET, makeState(), runtime as QuestionnaireRuntime)).not.toThrow();
 		expect(routeKey(BYTE_CTRL_RBRACKET, makeState(), runtime as QuestionnaireRuntime)).toEqual({ kind: "ignore" });
+	});
+});
+
+describe("routeKey — PageUp/PageDown", () => {
+	const options = Array.from({ length: 20 }, (_, i) => ({ label: `O${i}`, description: "" }));
+	const q = makeQuestion({ options });
+	const items: WrappingSelectItem[] = [
+		...options.map((o) => ({ kind: "option" as const, label: o.label })),
+		{ kind: "other" as const, label: "Type something." },
+	];
+	const runtime = makeRuntime({ questions: [q], items });
+
+	it("jumps PAGE_STEP rows down and up", () => {
+		expect(routeKey(sentinel(KEY.PAGE_DOWN), makeState({ optionIndex: 2 }), runtime)).toEqual({
+			kind: "nav",
+			nextIndex: 2 + PAGE_STEP,
+			inputValue: "",
+		});
+		expect(routeKey(sentinel(KEY.PAGE_UP), makeState({ optionIndex: 12 }), runtime)).toEqual({
+			kind: "nav",
+			nextIndex: 12 - PAGE_STEP,
+			inputValue: "",
+		});
+	});
+
+	it("clamps at the ends instead of wrapping", () => {
+		expect(routeKey(sentinel(KEY.PAGE_DOWN), makeState({ optionIndex: 18 }), runtime)).toMatchObject({
+			kind: "nav",
+			nextIndex: items.length - 1,
+		});
+		expect(routeKey(sentinel(KEY.PAGE_UP), makeState({ optionIndex: 2 }), runtime)).toMatchObject({
+			kind: "nav",
+			nextIndex: 0,
+		});
+		expect(routeKey(sentinel(KEY.PAGE_UP), makeState({ optionIndex: 0 }), runtime)).toEqual({ kind: "ignore" });
+	});
+
+	it("works on multi-select tabs and from the inline input row", () => {
+		const multi = makeRuntime({ questions: [makeQuestion({ options, multiSelect: true })], items });
+		expect(routeKey(sentinel(KEY.PAGE_DOWN), makeState({ optionIndex: 0 }), multi)).toMatchObject({
+			kind: "nav",
+			nextIndex: PAGE_STEP,
+		});
+		expect(
+			routeKey(sentinel(KEY.PAGE_UP), makeState({ optionIndex: 20, inputMode: true }), {
+				...runtime,
+				currentItem: items[20],
+			}),
+		).toMatchObject({ kind: "nav", nextIndex: 20 - PAGE_STEP });
 	});
 });

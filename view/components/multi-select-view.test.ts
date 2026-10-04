@@ -474,3 +474,39 @@ describe("MultiSelectView width safety", () => {
 		}
 	});
 });
+
+describe("MultiSelectView — row-budget window for long lists", () => {
+	const longQ = question({
+		options: Array.from({ length: 30 }, (_, i) => ({ label: `opt-${i + 1}`, description: `desc ${i + 1}` })),
+	});
+	const strip = (l: string) => l.replace(/\x1b\[[0-9;]*m/g, "");
+
+	it("keeps a stable height and the focused row in view across every row (options, Type something., Next)", () => {
+		const view = new MultiSelectView(theme, longQ, 12);
+		for (let idx = 0; idx < longQ.options.length + 2; idx++) {
+			view.setProps(makeProps(longQ, { optionIndex: idx }));
+			const lines = view.render(60).map(strip);
+			expect(lines.length).toBe(12);
+			expect(view.naturalHeight(60)).toBe(12);
+			const [a] = view.focusedItemRowRange(60);
+			expect(lines[a]).toMatch(/^❯ /);
+		}
+	});
+
+	it("shows hidden-row indicators and keeps checkbox state for visible rows", () => {
+		const view = new MultiSelectView(theme, longQ, 12);
+		view.setProps(makeProps(longQ, { optionIndex: 15, checkedIndices: new Set([14, 15]) }));
+		const lines = view.render(60).map(strip);
+		expect(lines[0]).toMatch(/↑ \d+ more/);
+		expect(lines[lines.length - 1]).toMatch(/↓ \d+ more · 16\/32/);
+		expect(lines.some((l) => /❯ 16\. \[✔\] opt-16/.test(l))).toBe(true);
+		expect(lines.some((l) => /15\. \[✔\] opt-15/.test(l))).toBe(true);
+	});
+
+	it("does not window short lists", () => {
+		const q = question();
+		const view = new MultiSelectView(theme, q, 12);
+		view.setProps(makeProps(q));
+		expect(view.render(80).length).toBe(5);
+	});
+});

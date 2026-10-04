@@ -8,6 +8,7 @@ adapts to the size of your terminal.
 | Key | What it does | Where it applies |
 | --- | --- | --- |
 | `↑` / `↓` | Move between rows. Wraps at both ends. | Option list, Submit picker |
+| `PgUp` / `PgDn` | Jump five rows up / down. Stops at the first / last row (no wrap). Follows `tui.select.pageUp` / `tui.select.pageDown`. | Option list |
 | `Enter` | Confirm the focused option, commit typed text, close notes, or activate the focused Submit-picker row. | Everywhere |
 | `Shift+Enter` | Insert a newline. | `Type something.` input, notes editor |
 | `Esc` | Cancel the whole questionnaire. | Everywhere except the notes editor, where it closes notes |
@@ -96,6 +97,35 @@ Options render in a vertical list. When any option in a single-select question c
 and a bordered monospace preview box on the right — but only when both the terminal and
 the dialog pane are at least 100 columns wide. Below that, the preview stacks underneath
 the options instead.
+
+### Many options: the scrolling option list
+
+An option list is budgeted in terminal **rows**, not items: an option whose label and
+description wrap to four rows costs four. When the whole list (options plus the
+`Type something.` and `Next` rows) fits in 20 rows it renders exactly as before. Otherwise
+it becomes a window of exactly 20 rows centred on the focused option:
+
+```
+  ↑ 3 more
+   4. Option 4
+      a long description that wraps
+      onto a second row
+❯  5. Option 5
+      short description
+   …
+  ↓ 6 more · 5/13
+```
+
+- Only whole options are shown; leftover rows are padded so the height never changes
+  while you scroll — however unevenly descriptions wrap.
+- The top row counts options hidden above (blank at the top of the list); the bottom row
+  counts options hidden below and shows the focused row's position.
+- The same window applies to multi-select lists (checkbox state is kept for rows scrolled
+  out of view) and to the left column of the side-by-side preview layout.
+- A focused row taller than the window — a long multi-line custom answer — is always
+  shown whole; the dialog's own overflow scrolling takes over from there.
+- Questions with more than five options add `PgUp/PgDn to page` to the footer hint, after
+  `Esc to cancel` so it is the first part a narrow terminal clips.
 
 ### Many questions: the windowed tab strip
 

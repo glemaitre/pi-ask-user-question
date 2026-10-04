@@ -2,9 +2,11 @@
 
 [![Test](https://github.com/glemaitre/pi-ask-user-question/actions/workflows/test.yml/badge.svg)](https://github.com/glemaitre/pi-ask-user-question/actions/workflows/test.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A fork of [`@juicesharp/rpiv-ask-user-question`](https://www.npmjs.com/package/@juicesharp/rpiv-ask-user-question) (v2.12.0, MIT) that **scales past four questions**:
+A fork of [`@juicesharp/rpiv-ask-user-question`](https://www.npmjs.com/package/@juicesharp/rpiv-ask-user-question) (v2.12.0, MIT) that **scales past four questions and four options**:
 
 - **Configurable question cap** — default raised from 4 to **12**, adjustable with `maxQuestions` (1–50) in the config file. The cap flows into the tool schema (`maxItems`), the prompt snippet/guidelines the model sees, and the runtime validator.
+- **Configurable option cap** — default raised from 4 to **12** options per question, adjustable with `maxOptions` (2–50). Same plumbing as `maxQuestions`: schema, prompt copy and validator agree on one value.
+- **Scrolling option lists** — long lists (single- and multi-select, with or without previews) scroll inside a fixed 20-row budget around the focused option, with `↑ N more` / `↓ N more · 7/13` indicators, so the dialog height stays stable however unevenly descriptions wrap. `PgUp` / `PgDn` jump five rows.
 - **Windowed tab strip** — with many questions the tab strip no longer clips at the right edge. It keeps the focused tab visible, pins `Submit` on the right, shows a `[7/13]` position counter, and `‹5` / `3›` markers that count hidden tabs (warning-colored while any hidden tab is still unanswered):
 
   ```
@@ -44,7 +46,7 @@ When the model asks several things at once, `Tab` moves between them and a Submi
 
 ## What you get
 
-- **Typed options instead of a wall of prose** — each question carries 2-4 authored choices, and every choice comes with a description of what it means or what it costs you.
+- **Typed options instead of a wall of prose** — each question carries 2-12 authored choices (configurable), and every choice comes with a description of what it means or what it costs you.
 - **You can always answer in your own words** — a `Type something.` row is appended to every question, single- or multi-select, widens to the full pane while you type, keeps its multiline draft visible in that row while you browse, and supports Pi's `Shift+Enter` newline and `Ctrl+G` external-editor flows.
 - **Compare real artifacts, not just labels** — an option can carry a markdown `preview` (ASCII mockup, code, diagram, config) that renders in a bordered box beside the option list.
 - **One interruption, not five** — up to 12 questions (configurable) arrive in a single tabbed dialog, and the Submit tab lists your answers and names anything still blank before you commit.
@@ -60,12 +62,13 @@ Optional. Settings live in `~/.config/pi-ask-user-question/config.json`; the fil
 | --- | --- | --- |
 | `collapseKey` | Key that collapses and expands the dialog. Accepts Pi keybinding ids such as `alt+o`; `"off"` disables the shortcut. | `"ctrl+]"` |
 | `maxQuestions` | Maximum questions per call (integer 1–50). Updates the schema, the built-in prompt text and the validator together. | `12` |
+| `maxOptions` | Maximum authored options per question (integer 2–50). Updates the schema, the built-in prompt text and the validator together. | `12` |
 | `guidance.description` | Full replacement for the tool description the model sees. A non-empty string replaces the built-in text entirely — no merging. | built-in description |
 | `guidance.promptSnippet` | One-line description of the tool in the system prompt — tune how eagerly the model asks. | built-in snippet |
 | `guidance.promptGuidelines` | Usage guidelines given to the model, as a list of strings. | 4 built-in guidelines |
 
 ```json
-{ "collapseKey": "alt+o", "maxQuestions": 20 }
+{ "collapseKey": "alt+o", "maxQuestions": 20, "maxOptions": 20 }
 ```
 
 Malformed JSON falls back to the defaults with a warning; an individual unusable value is silently dropped back to its default. Never an error.

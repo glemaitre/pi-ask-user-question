@@ -17,7 +17,7 @@ ask_user_question({
           description: string,     // what the choice means / its trade-off
           preview?: string,        // markdown rendered next to the options
         },
-        // … 2-4 options total
+        // … 2-12 options total (configurable via `maxOptions`)
       ],
       multiSelect?: boolean,       // default false
     },
@@ -32,7 +32,7 @@ ask_user_question({
 | --- | --- | --- |
 | `questions` | 1-12 entries by default; `maxQuestions` config (1-50) | TypeBox schema + `validateQuestionnaire` |
 | `questions[].header` | max 16 characters | TypeBox schema only |
-| `questions[].options` | 2-4 entries | TypeBox schema (both bounds) + `validateQuestionnaire` (minimum only) |
+| `questions[].options` | 2-12 entries by default; `maxOptions` config (2-50) | TypeBox schema + `validateQuestionnaire` (both bounds) |
 | `options[].label` | max 60 characters | TypeBox schema only |
 | `options[].preview` | single-select questions only | tool description (multi-select tabs render checkbox rows) |
 
@@ -56,6 +56,7 @@ code. The `content[0].text` string is written for the model, not for a log.
 | --- | --- |
 | `no_questions` | `questions` was empty |
 | `too_many_questions` | more questions than the configured `maxQuestions` (default 12) in one call |
+| `too_many_options` | a question carried more options than the configured `maxOptions` (default 12) |
 | `duplicate_question` | two questions with identical text |
 | `empty_options` | a question carried fewer than 2 options |
 | `reserved_label` | an option used a reserved label |

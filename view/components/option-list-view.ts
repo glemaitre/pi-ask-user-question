@@ -1,11 +1,12 @@
 import type { StatefulView } from "../stateful-view.js";
+import { MAX_LIST_ROWS } from "./list-window.js";
 import { WrappingSelect, type WrappingSelectItem, type WrappingSelectTheme } from "./wrapping-select.js";
 
 /**
- * Maximum number of option rows visible in the WrappingSelect window. Lifted here from
- * `preview-pane.ts` so the cap travels with the option-list owner.
+ * Row budget of the option list window (terminal rows, not items). Lists that fit
+ * render verbatim; longer ones scroll around the focused option — see `list-window.ts`.
  */
-export const MAX_VISIBLE_OPTIONS = 10;
+export const MAX_VISIBLE_ROWS = MAX_LIST_ROWS;
 
 export interface OptionListViewConfig {
 	items: readonly WrappingSelectItem[];
@@ -38,7 +39,7 @@ export class OptionListView implements StatefulView<OptionListViewProps> {
 	private readonly select: WrappingSelect;
 
 	constructor(config: OptionListViewConfig) {
-		this.select = new WrappingSelect(config.items, Math.min(config.items.length, MAX_VISIBLE_OPTIONS), config.theme, {
+		this.select = new WrappingSelect(config.items, MAX_VISIBLE_ROWS, config.theme, {
 			numberStartOffset: 0,
 			totalItemsForNumbering: config.items.length,
 		});

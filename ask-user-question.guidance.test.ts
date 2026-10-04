@@ -187,6 +187,49 @@ describe("registerAskUserQuestionTool — maxQuestions", () => {
 		expect(r.content[0]?.text).toContain("At most 5 questions");
 	});
 
+	it("advertises the default option cap (2-12) in snippet, guidelines and schema", () => {
+		const { pi, captured } = createMockPi();
+		registerAskUserQuestionTool(pi);
+		const tool = captured.tools.get(TOOL_NAME)!;
+		expect(tool.promptSnippet).toContain("(2-12 options each)");
+		expect((tool.promptGuidelines as string[])[1]).toContain("MUST have 2-12 options");
+		const params = tool.parameters as {
+			properties: { questions: { items: { properties: { options: { maxItems: number } } } } };
+		};
+		expect(params.properties.questions.items.properties.options.maxItems).toBe(12);
+	});
+
+	it("threads a configured option cap through snippet, guidelines, schema and validation", async () => {
+		writeConfig({ maxOptions: 6 });
+		const { pi, captured } = createMockPi();
+		registerAskUserQuestionTool(pi);
+		const tool = captured.tools.get(TOOL_NAME)!;
+		expect(tool.promptSnippet).toBe(buildPromptSnippet(12, 6));
+		expect(tool.promptGuidelines).toEqual(buildPromptGuidelines(12, 6));
+		const params = tool.parameters as {
+			properties: { questions: { items: { properties: { options: { maxItems: number } } } } };
+		};
+		expect(params.properties.questions.items.properties.options.maxItems).toBe(6);
+
+		const ctx = { hasUI: true, ui: { custom: async () => null } };
+		const many = [
+			{
+				question: "Q?",
+				header: "H",
+				options: Array.from({ length: 7 }, (_, i) => ({ label: `O${i}`, description: `d${i}` })),
+			},
+		];
+		const r = (await tool.execute?.(
+			"tc",
+			{ questions: many } as never,
+			undefined as never,
+			undefined as never,
+			ctx as never,
+		)) as { details: { error?: string }; content: Array<{ text: string }> };
+		expect(r.details.error).toBe("too_many_options");
+		expect(r.content[0]?.text).toContain("At most 6 options");
+	});
+
 	it("keeps a user-supplied promptSnippet verbatim even with a custom cap", () => {
 		writeConfig({ maxQuestions: 5, guidance: { promptSnippet: "Mine" } });
 		const { pi, captured } = createMockPi();

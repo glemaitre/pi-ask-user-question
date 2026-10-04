@@ -11,6 +11,8 @@ import { QuestionTabStrategy, SubmitTabStrategy, type TabContentStrategy } from 
 
 export const HINT_PART_ENTER = "Enter to select";
 export const HINT_PART_NAV = "↑/↓ to navigate";
+/** Shown only on questions long enough for paging to matter (`options.length > PAGE_STEP`). */
+export const HINT_PART_PAGE = "PgUp/PgDn to page";
 export const HINT_PART_NEW_LINE = "Shift+Enter for newline";
 export const HINT_PART_CLEAR = "Ctrl+U to clear";
 export const HINT_PART_TOGGLE = "Space to toggle";

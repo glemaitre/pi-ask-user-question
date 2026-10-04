@@ -1,6 +1,12 @@
 import type { GuidanceFields } from "@juicesharp/rpiv-config";
 import { loadJsonConfigWithLegacyFallback, validateGuidanceFields } from "@juicesharp/rpiv-config";
-import { DEFAULT_MAX_QUESTIONS, MAX_QUESTIONS_CEILING } from "./tool/types.js";
+import {
+	DEFAULT_MAX_OPTIONS,
+	DEFAULT_MAX_QUESTIONS,
+	MAX_OPTIONS_CEILING,
+	MAX_QUESTIONS_CEILING,
+	MIN_OPTIONS,
+} from "./tool/types.js";
 
 /** Key spec for the overlay collapse/expand shortcut, e.g. `"ctrl+]"` or `"alt+o"`. */
 export type CollapseKeySpec = string;
@@ -23,6 +29,12 @@ export interface AskUserQuestionConfig {
 	 * `[1, MAX_QUESTIONS_CEILING]`; anything else falls back to `DEFAULT_MAX_QUESTIONS`.
 	 */
 	maxQuestions?: number;
+	/**
+	 * Maximum number of authored options per question. Integer in
+	 * `[MIN_OPTIONS, MAX_OPTIONS_CEILING]`; anything else falls back to `DEFAULT_MAX_OPTIONS`.
+	 * Long lists scroll inside a fixed row budget, so the dialog footprint stays bounded.
+	 */
+	maxOptions?: number;
 }
 
 /** Resolve the per-invocation question cap; invalid values silently fall back to the default. */
@@ -30,6 +42,14 @@ export function resolveMaxQuestions(config: Pick<AskUserQuestionConfig, "maxQues
 	const raw = config.maxQuestions;
 	if (typeof raw !== "number" || !Number.isInteger(raw)) return DEFAULT_MAX_QUESTIONS;
 	if (raw < 1 || raw > MAX_QUESTIONS_CEILING) return DEFAULT_MAX_QUESTIONS;
+	return raw;
+}
+
+/** Resolve the per-question option cap; invalid values silently fall back to the default. */
+export function resolveMaxOptions(config: Pick<AskUserQuestionConfig, "maxOptions">): number {
+	const raw = config.maxOptions;
+	if (typeof raw !== "number" || !Number.isInteger(raw)) return DEFAULT_MAX_OPTIONS;
+	if (raw < MIN_OPTIONS || raw > MAX_OPTIONS_CEILING) return DEFAULT_MAX_OPTIONS;
 	return raw;
 }
 

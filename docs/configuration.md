@@ -19,6 +19,7 @@ A complete example:
 {
   "collapseKey": "alt+o",
   "maxQuestions": 20,
+  "maxOptions": 20,
   "guidance": {
     "description": "Ask the user structured questions whenever requirements are ambiguous.",
     "promptSnippet": "Ask me before guessing on anything ambiguous",
@@ -61,6 +62,7 @@ type are likewise dropped back to their default without a warning.
 | --- | --- | --- |
 | `collapseKey` | Key that collapses and expands the dialog overlay. | `"ctrl+]"` |
 | `maxQuestions` | Maximum questions per `ask_user_question` call. Integer from 1 to 50; flows into the parameter schema (`maxItems`), the built-in prompt snippet/guidelines, and the runtime validator. Any other value falls back to the default. | `12` |
+| `maxOptions` | Maximum authored options per question. Integer from 2 to 50; flows into the per-question schema (`options.maxItems`), the built-in prompt snippet/guidelines, and the runtime validator (`too_many_options`). Any other value falls back to the default. Long lists scroll, so a high cap does not grow the dialog. | `12` |
 | `guidance.description` | Full text of the tool description the model sees. Replaces the built-in default entirely — no merging. | built-in description |
 | `guidance.promptSnippet` | One-line snippet describing the tool in the system prompt. | built-in snippet |
 | `guidance.promptGuidelines` | List of usage guidelines given to the model. | 4 built-in guidelines |
