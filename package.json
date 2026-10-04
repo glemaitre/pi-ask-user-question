@@ -1,5 +1,5 @@
 {
-	"name": "pi-ask-user-question",
+	"name": "@probabl/pi-ask-user-question",
 	"version": "0.1.0",
 	"description": "Pi extension. Structured questionnaire tool (ask_user_question) that scales past 4 questions and 4 options \u2014 fork of @juicesharp/rpiv-ask-user-question with configurable question/option caps, a windowed tab bar and scrolling option lists.",
 	"keywords": [
@@ -13,7 +13,13 @@
 		"./events": "./events.ts"
 	},
 	"license": "MIT",
-	"author": "juicesharp (original), forked",
+	"author": "Probabl",
+	"contributors": [
+		"juicesharp (original author of @juicesharp/rpiv-ask-user-question)"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"test": "vitest run",
 		"test:watch": "vitest",
@@ -100,10 +106,10 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/glemaitre/pi-ask-user-question.git"
+		"url": "git+https://github.com/probabl-ai/pi-ask-user-question.git"
 	},
-	"homepage": "https://github.com/glemaitre/pi-ask-user-question#readme",
+	"homepage": "https://github.com/probabl-ai/pi-ask-user-question#readme",
 	"bugs": {
-		"url": "https://github.com/glemaitre/pi-ask-user-question/issues"
+		"url": "https://github.com/probabl-ai/pi-ask-user-question/issues"
 	}
 }

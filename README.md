@@ -1,6 +1,6 @@
-# pi-ask-user-question
+# @probabl/pi-ask-user-question
 
-[![Test](https://github.com/glemaitre/pi-ask-user-question/actions/workflows/test.yml/badge.svg)](https://github.com/glemaitre/pi-ask-user-question/actions/workflows/test.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Test](https://github.com/probabl-ai/pi-ask-user-question/actions/workflows/test.yml/badge.svg)](https://github.com/probabl-ai/pi-ask-user-question/actions/workflows/test.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A fork of [`@juicesharp/rpiv-ask-user-question`](https://www.npmjs.com/package/@juicesharp/rpiv-ask-user-question) (v2.12.0, MIT) that **scales past four questions and four options**:
 
@@ -22,7 +22,7 @@ Let the model ask you instead of guessing. This extension gives [Pi Agent](https
 ## Install
 
 ```sh
-pi install git:github.com/glemaitre/pi-ask-user-question
+pi install npm:@probabl/pi-ask-user-question
 pi install ./pi-ask-user-question          # local checkout
 ```
 
