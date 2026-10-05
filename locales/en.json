@@ -7,7 +7,6 @@
 
   "hint.enter": "Enter to select",
   "hint.navigate": "↑/↓ to navigate",
-  "hint.page": "PgUp/PgDn to page",
   "hint.newline": "Shift+Enter for newline",
   "hint.clear": "Ctrl+U to clear",
   "hint.toggle": "Space to toggle",

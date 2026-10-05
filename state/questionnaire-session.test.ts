@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { TUI } from "@earendil-works/pi-tui";
+import { matchesKey, type TUI } from "@earendil-works/pi-tui";
 import { makeTheme } from "../test/utils/index.js";
 import { describe, expect, it, vi } from "vitest";
 import type { QuestionnaireResult, QuestionParams } from "../tool/types.js";
@@ -14,6 +14,10 @@ const CTRL_G = "\x07";
 const CTRL_U = "\x15";
 const SHIFT_ENTER = "\x1b\r";
 const TAB = "\t";
+const PAGE_UP = "\x1b[5~";
+const PAGE_DOWN = "\x1b[6~";
+const WHEEL_UP = "\x1b[<64;1;1M";
+const WHEEL_DOWN = "\x1b[<65;1;1M";
 
 const params: QuestionParams = {
 	questions: [
@@ -60,6 +64,10 @@ const keybindings = {
 				return data === CTRL_U;
 			case "app.editor.external":
 				return data === CTRL_G;
+			case "tui.altScreen.pageUp":
+				return data === PAGE_UP;
+			case "tui.altScreen.pageDown":
+				return data === PAGE_DOWN;
 			default:
 				return false;
 		}
@@ -71,13 +79,14 @@ interface SessionTestOptions {
 	itemsByTab?: WrappingSelectItem[][];
 	editInput?: (value: string) => Promise<string | undefined>;
 	keybindings?: typeof keybindings;
+	tui?: unknown;
 }
 
 function makeSession(options: SessionTestOptions = {}) {
 	const sessionParams = options.params ?? params;
 	const done = vi.fn<(result: QuestionnaireResult) => void>();
 	const session = new QuestionnaireSession({
-		tui: { terminal: { columns: 120, rows: 40 }, requestRender: vi.fn() } as unknown as TUI,
+		tui: (options.tui ?? { terminal: { columns: 120, rows: 40 }, requestRender: vi.fn() }) as unknown as TUI,
 		theme: makeTheme() as unknown as Theme,
 		params: sessionParams,
 		itemsByTab: options.itemsByTab ?? itemsFor(sessionParams),
@@ -310,5 +319,101 @@ describe("QuestionnaireSession — collapsed row with collapseKey 'off'", () => 
 		expect(collapsed[0]).toContain("Esc to cancel");
 		expect(collapsed[0]).not.toContain("to expand");
 		expect(collapsed[0]).not.toContain("Off");
+	});
+});
+
+describe("QuestionnaireSession — transcript scrolling behind the dialog", () => {
+	function scrollableTui(options: { rows?: number; viewportHeight?: number } = {}) {
+		const scrollBy = vi.fn();
+		const scrollToTop = vi.fn();
+		const scrollToBottom = vi.fn();
+		const tui: Record<string, unknown> = {
+			terminal: { columns: 120, rows: options.rows ?? 40 },
+			requestRender: vi.fn(),
+			scrollBy,
+			scrollToTop,
+			scrollToBottom,
+		};
+		if (options.viewportHeight !== undefined) {
+			const viewportHeight = options.viewportHeight;
+			tui.getPrimaryScrollView = () => ({ viewportHeight });
+		}
+		return { tui, scrollBy, scrollToTop, scrollToBottom };
+	}
+
+	/** Real pi-tui key matching for the alt-screen page bindings (Kitty-aware). */
+	const realPageKeybindings = {
+		matches(data: string, name: string): boolean {
+			if (name === "tui.altScreen.pageUp") return matchesKey(data, "pageUp");
+			if (name === "tui.altScreen.pageDown") return matchesKey(data, "pageDown");
+			return false;
+		},
+	};
+
+	it("pages by the transcript viewport height minus the host overlap", () => {
+		// 40-row terminal with a 6-row input dock → 34-row transcript → 30-line page.
+		const { tui, scrollBy } = scrollableTui({ rows: 40, viewportHeight: 34 });
+		const { session } = makeSession({ tui });
+		expect(session.tryScrollTranscript(PAGE_UP)).toBe(true);
+		expect(session.tryScrollTranscript(PAGE_DOWN)).toBe(true);
+		expect(scrollBy).toHaveBeenNthCalledWith(1, -30);
+		expect(scrollBy).toHaveBeenNthCalledWith(2, 30);
+	});
+
+	it("falls back to a dock-aware estimate when the viewport height is unknown", () => {
+		// 40 rows - 8 reserved dock rows - 4 overlap: never jumps past unseen lines.
+		const { tui, scrollBy } = scrollableTui({ rows: 40 });
+		const { session } = makeSession({ tui });
+		expect(session.tryScrollTranscript(PAGE_UP)).toBe(true);
+		expect(scrollBy).toHaveBeenCalledWith(-28);
+	});
+
+	it("scrolls on SGR wheel events without any keybinding match", () => {
+		const { tui, scrollBy } = scrollableTui();
+		const { session } = makeSession({ tui });
+		expect(session.tryScrollTranscript(WHEEL_UP)).toBe(true);
+		expect(session.tryScrollTranscript(WHEEL_DOWN)).toBe(true);
+		expect(scrollBy).toHaveBeenNthCalledWith(1, -3);
+		expect(scrollBy).toHaveBeenNthCalledWith(2, 3);
+	});
+
+	it("leaves ordinary dialog keys to the router", () => {
+		const { tui, scrollBy } = scrollableTui();
+		const { session } = makeSession({ tui });
+		expect(session.tryScrollTranscript(DOWN)).toBe(false);
+		expect(session.tryScrollTranscript(ENTER)).toBe(false);
+		expect(session.tryScrollTranscript("x")).toBe(false);
+		expect(scrollBy).not.toHaveBeenCalled();
+	});
+
+	it("does not consume page keys on a host without a scrollable viewport", () => {
+		// Main-screen hosts keep the dialog's own PgUp/PgDn option-list paging.
+		const { session } = makeSession();
+		expect(session.tryScrollTranscript(PAGE_UP)).toBe(false);
+		expect(session.tryScrollTranscript(WHEEL_UP)).toBe(false);
+	});
+
+	it("scrolls on Kitty press and repeat, and swallows the release without moving", () => {
+		const { tui, scrollBy } = scrollableTui({ viewportHeight: 34 });
+		const { session } = makeSession({ tui, keybindings: realPageKeybindings });
+		expect(session.tryScrollTranscript("\x1b[5;1:1~")).toBe(true); // press
+		expect(session.tryScrollTranscript("\x1b[5;1:2~")).toBe(true); // repeat (held key)
+		expect(session.tryScrollTranscript("\x1b[5;1:3~")).toBe(true); // release
+		expect(scrollBy).toHaveBeenCalledTimes(2);
+		expect(scrollBy).toHaveBeenNthCalledWith(2, -30);
+	});
+
+	it("does not touch questionnaire state while scrolling", () => {
+		const { tui } = scrollableTui({ viewportHeight: 34 });
+		const { session, done } = makeSession({ tui });
+		const before = session.component.render(120).join("\n");
+		session.tryScrollTranscript(PAGE_DOWN);
+		session.tryScrollTranscript(WHEEL_DOWN);
+		expect(session.component.render(120).join("\n")).toBe(before);
+		session.dispatch(ENTER);
+		expect(done).toHaveBeenCalledWith({
+			answers: [expect.objectContaining({ kind: "option", answer: "A" })],
+			cancelled: false,
+		});
 	});
 });

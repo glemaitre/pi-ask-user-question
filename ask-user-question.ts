@@ -182,6 +182,34 @@ function registerCollapseKeyListener(
 }
 
 /**
+ * Register the raw terminal listener that scrolls the transcript while the
+ * questionnaire overlay holds keyboard focus. Pi's fullscreen host defers its
+ * transcript scroll bindings and wheel events to the focused overlay
+ * (`shouldDeferViewportInputToOverlay`), so this listener re-routes only those
+ * inputs to the viewport and leaves every other key to the dialog.
+ *
+ * Guarded exactly like the collapse listener: only while our overlay is visible and
+ * focused. When another overlay sits on top (e.g. `/btw`) the questionnaire is not
+ * focused, so the keystroke is left to that overlay. Returns the remover, or
+ * `undefined` when the host exposes no raw terminal input hook — the dialog then
+ * keeps its own PgUp/PgDn paging. On main-screen hosts the listener is registered
+ * but never consumes: they expose no scrollable viewport, so
+ * `tryScrollTranscript` declines and the key reaches the dialog.
+ */
+function registerTranscriptScrollListener(
+	ctx: ExtensionContext,
+	sessionRef: SessionRef,
+	overlayHandleRef: OverlayHandleRef,
+): (() => void) | undefined {
+	if (typeof ctx.ui.onTerminalInput !== "function") return undefined;
+	return ctx.ui.onTerminalInput((data) => {
+		const handle = overlayHandleRef.current;
+		if (!handle || handle.isHidden() || !handle.isFocused()) return undefined;
+		return sessionRef.current?.tryScrollTranscript(data) ? { consume: true } : undefined;
+	});
+}
+
+/**
  * Build the `ctx.ui.custom` component factory: constructs the session (capturing it in
  * `sessionRef`) and exposes its component. `editInput` keeps its two dynamic imports —
  * they must stay lazy per-invocation.
@@ -382,6 +410,9 @@ export function registerAskUserQuestionTool(pi: ExtensionAPI): void {
 			const sessionRef: SessionRef = { current: null };
 			const overlayHandleRef: OverlayHandleRef = { current: undefined };
 			const removeOverlayInputListener = registerCollapseKeyListener(ctx, collapseKey, sessionRef, overlayHandleRef);
+			// Independent of `collapseKey`: scrolling the transcript works even when the
+			// collapse shortcut is disabled.
+			const removeTranscriptScrollListener = registerTranscriptScrollListener(ctx, sessionRef, overlayHandleRef);
 			// Hiding the overlay is only reversible through the raw listener above, so
 			// the session may emit `setHidden` only when it was actually registered;
 			// otherwise collapse falls back to the visible one-line row.
@@ -422,6 +453,7 @@ export function registerAskUserQuestionTool(pi: ExtensionAPI): void {
 				return buildQuestionnaireResponse(result, typed);
 			} finally {
 				removeOverlayInputListener?.();
+				removeTranscriptScrollListener?.();
 				emitAskUserBlockedEvent(pi, false);
 			}
 		},

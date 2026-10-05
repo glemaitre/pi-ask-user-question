@@ -6,7 +6,8 @@ A fork of [`@juicesharp/rpiv-ask-user-question`](https://www.npmjs.com/package/@
 
 - **Configurable question cap** — default raised from 4 to **12**, adjustable with `maxQuestions` (1–50) in the config file. The cap flows into the tool schema (`maxItems`), the prompt snippet/guidelines the model sees, and the runtime validator.
 - **Configurable option cap** — default raised from 4 to **12** options per question, adjustable with `maxOptions` (2–50). Same plumbing as `maxQuestions`: schema, prompt copy and validator agree on one value.
-- **Scrolling option lists** — long lists (single- and multi-select, with or without previews) scroll inside a fixed 20-row budget around the focused option, with `↑ N more` / `↓ N more · 7/13` indicators, so the dialog height stays stable however unevenly descriptions wrap. `PgUp` / `PgDn` jump five rows.
+- **Scrolling option lists** — long lists (single- and multi-select, with or without previews) scroll inside a fixed 20-row budget around the focused option, with `↑ N more` / `↓ N more · 7/13` indicators, so the dialog height stays stable however unevenly descriptions wrap.
+- **Scroll the transcript without leaving the dialog** — `PgUp` / `PgDn` and the mouse wheel move the conversation behind the dialog while arrows / `Enter` / typing keep editing it, so the context you need to answer stays one page away.
 - **Windowed tab strip** — with many questions the tab strip no longer clips at the right edge. It keeps the focused tab visible, pins `Submit` on the right, shows a `[7/13]` position counter, and `‹5` / `3›` markers that count hidden tabs (warning-colored while any hidden tab is still unanswered):
 
   ```
@@ -51,7 +52,7 @@ When the model asks several things at once, `Tab` moves between them and a Submi
 - **Compare real artifacts, not just labels** — an option can carry a markdown `preview` (ASCII mockup, code, diagram, config) that renders in a bordered box beside the option list.
 - **One interruption, not five** — up to 12 questions (configurable) arrive in a single tabbed dialog, and the Submit tab lists your answers and names anything still blank before you commit.
 - **Notes on any answer — or on all of them** — `n` opens a multiline note editor on any question tab, and on the Submit tab it opens one global note for the whole questionnaire. Per-question notes reach the model as `user notes: <text>`, the global note as `global note: <text>`; neither marks a question answered.
-- **Read the transcript behind the dialog** — `Ctrl+]` collapses the overlay so you can scroll the conversation, then brings it back with your answers intact.
+- **Read the transcript behind the dialog** — `PgUp` / `PgDn` and the mouse wheel scroll the conversation while the dialog stays focused and editable; `Ctrl+]` still collapses the overlay entirely, then brings it back with your answers intact.
 - **Works outside the terminal too** — in RPC and ACP hosts such as the VS Code pendant or Zed the questionnaire walks through the host's native dialogs (notes are terminal-only and do not carry over), and in non-interactive runs the tool is removed from the model's tool list instead of failing every call.
 
 ## Configuration
