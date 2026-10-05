@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Editor, OverlayHandle, TUI } from "@earendil-works/pi-tui";
+import { isKeyRelease, type Editor, type OverlayHandle, type TUI } from "@earendil-works/pi-tui";
 import { COLLAPSE_KEY_OFF, formatKeySpecForDisplay } from "../config.js";
 import type { QuestionData, QuestionnaireResult, QuestionParams } from "../tool/types.js";
 import type { WrappingSelectItem } from "../view/components/wrapping-select.js";
@@ -10,6 +10,13 @@ import { t } from "./i18n-bridge.js";
 import { type QuestionnaireAction, routeKey } from "./key-router.js";
 import type { QuestionnaireRuntime, QuestionnaireState } from "./state.js";
 import { type ApplyContext, type Effect, reduce } from "./state-reducer.js";
+import {
+	applyTranscriptScroll,
+	resolveTranscriptScroll,
+	transcriptPageSize,
+	transcriptScrollViewport,
+	transcriptViewportHeight,
+} from "./transcript-scroll.js";
 
 export interface QuestionnaireSessionConfig {
 	tui: TUI;
@@ -281,5 +288,28 @@ export class QuestionnaireSession {
 	 */
 	toggleCollapsedExternal(): void {
 		if (!this.inputEditorOpen) this.commit({ kind: "toggle_collapsed" });
+	}
+
+	/**
+	 * Public transcript-scroll entry used by the raw terminal input listener registered
+	 * in `execute()`. Unlike `dispatch` this never mutates questionnaire state: on a
+	 * fullscreen host it drives the primary viewport directly so PgUp/PgDn/wheel scroll
+	 * the transcript while the dialog keeps keyboard focus. Returns `true` when the input
+	 * was consumed as a transcript scroll.
+	 *
+	 * Returns `false` on main-screen hosts (no `scrollBy`) so the key falls through to
+	 * the dialog's own option-list paging — the pre-existing behaviour.
+	 */
+	tryScrollTranscript(data: string): boolean {
+		const viewport = transcriptScrollViewport(this.tui);
+		if (!viewport) return false;
+		const pageSize = transcriptPageSize(transcriptViewportHeight(this.tui), this.tui.terminal?.rows);
+		const intent = resolveTranscriptScroll(data, this.keybindings, pageSize);
+		if (!intent) return false;
+		// Kitty-protocol terminals report press, repeat, and release separately. Swallow
+		// the release so it cannot leak into the chat editor, but do not move on release.
+		if (isKeyRelease(data)) return true;
+		applyTranscriptScroll(viewport, intent);
+		return true;
 	}
 }

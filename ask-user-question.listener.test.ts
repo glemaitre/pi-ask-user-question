@@ -25,6 +25,24 @@ const KITTY_CTRL_RBRACKET_PRESS = "\x1b[93;5u";
 const KITTY_CTRL_RBRACKET_REPEAT = "\x1b[93;5:2u";
 const KITTY_CTRL_RBRACKET_RELEASE = "\x1b[93;5:3u";
 const ALT_O = "\x1bo"; // ESC-prefixed 'o' — legacy encoding for Alt+O
+const PAGE_UP = "\x1b[5~";
+const PAGE_DOWN = "\x1b[6~";
+const WHEEL_UP = "\x1b[<64;1;1M";
+const WHEEL_DOWN = "\x1b[<65;1;1M";
+
+/**
+ * Minimal keybindings: the alt-screen transcript bindings plus the dialog's own
+ * select bindings, both on PgUp/PgDn like Pi's defaults — so tests can tell which
+ * layer consumed the key.
+ */
+const scrollKeybindings = {
+	matches(data: string, name: string): boolean {
+		if (name === "tui.altScreen.pageUp" || name === "tui.select.pageUp") return data === PAGE_UP;
+		if (name === "tui.altScreen.pageDown" || name === "tui.select.pageDown") return data === PAGE_DOWN;
+		if (name === "tui.select.confirm") return data === "\r";
+		return false;
+	},
+};
 
 const params = {
 	questions: [
@@ -75,30 +93,63 @@ function register() {
  * the raw listener, `custom` runs the real factory then hands out the overlay
  * handle via `onHandle`, and `script` drives the interaction before resolving.
  */
-function driveWithListener(handle: FakeHandle, script: (done: (v: unknown) => void) => void) {
+interface DriveOptions {
+	/**
+	 * Fake a fullscreen host: expose `scrollBy` plus a 20-row transcript viewport
+	 * (`getPrimaryScrollView`). Default true; false mimics a main-screen TUI.
+	 */
+	scrollable?: boolean;
+}
+
+function driveWithListener(
+	handle: FakeHandle,
+	script: (done: (v: unknown) => void) => void,
+	driveOptions: DriveOptions = {},
+) {
 	const notify = vi.fn();
-	const removeListener = vi.fn();
-	const listenerRef: { current: RawListener | undefined } = { current: undefined };
+	const scrollBy = vi.fn();
+	const listeners: RawListener[] = [];
+	// One remover per registration, so teardown of each listener is observable.
+	const removers: Array<ReturnType<typeof vi.fn>> = [];
+	const fakeTui: Record<string, unknown> = { requestRender: vi.fn(), terminal: { columns: 120, rows: 24 } };
+	if (driveOptions.scrollable !== false) {
+		fakeTui.scrollBy = scrollBy;
+		fakeTui.getPrimaryScrollView = () => ({ viewportHeight: 20 });
+	}
 	const componentRef: { current: SessionComponent | undefined } = { current: undefined };
+	// Mirror TUI.handleInput: feed the keystroke through every registered raw
+	// listener in registration order and stop at the first consumer. `execute()`
+	// registers the collapse listener and the transcript-scroll listener, so a
+	// single-listener stub would hide one of them.
+	const press: RawListener = (data) => {
+		for (const listener of listeners) {
+			const result = listener(data);
+			if (result?.consume) return result;
+		}
+		return undefined;
+	};
+	const listenerRef: { current: RawListener | undefined } = { current: press };
 	const onTerminalInput = vi.fn((h: RawListener) => {
-		listenerRef.current = h;
-		return removeListener;
+		listeners.push(h);
+		const remove = vi.fn();
+		removers.push(remove);
+		return remove;
 	});
 	const custom = vi.fn(
 		(
 			factory: (
-				tui: { requestRender: () => void; terminal: { columns: number; rows: number } },
+				tui: Record<string, unknown>,
 				theme: typeof identityTheme,
-				kb: undefined,
+				kb: { matches(data: string, name: string): boolean },
 				done: (v: unknown) => void,
 			) => unknown,
 			options?: { onHandle?: (handle: FakeHandle) => void },
 		) => {
 			return new Promise((resolve) => {
 				componentRef.current = factory(
-					{ requestRender: vi.fn(), terminal: { columns: 120, rows: 24 } },
+					fakeTui,
 					identityTheme,
-					undefined,
+					scrollKeybindings,
 					resolve,
 				) as SessionComponent;
 				options?.onHandle?.(handle);
@@ -107,7 +158,7 @@ function driveWithListener(handle: FakeHandle, script: (done: (v: unknown) => vo
 		},
 	);
 	const ctx = { hasUI: true, ui: { custom, onTerminalInput, notify } } as never;
-	return { ctx, notify, onTerminalInput, removeListener, listenerRef, componentRef };
+	return { ctx, notify, onTerminalInput, removers, listenerRef, componentRef, scrollBy };
 }
 
 const home = process.env.HOME ?? "";
@@ -127,7 +178,7 @@ describe("ask_user_question — raw terminal collapse listener", () => {
 	it("hides via OverlayHandle.setHidden, notifies once, and unhides on the second press", async () => {
 		const tool = register();
 		const handle = makeHandle();
-		const { ctx, notify, removeListener, listenerRef } = driveWithListener(handle, (done) => {
+		const { ctx, notify, removers, listenerRef } = driveWithListener(handle, (done) => {
 			// First press: hide + one-shot notification with the reopen key.
 			expect(listenerRef.current?.(CTRL_RBRACKET)).toEqual({ consume: true });
 			expect(handle.isHidden()).toBe(true);
@@ -143,8 +194,10 @@ describe("ask_user_question — raw terminal collapse listener", () => {
 			done({ answers: [], cancelled: true });
 		});
 		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
-		// execute's finally must tear the raw listener down once the tool resolves.
-		expect(removeListener).toHaveBeenCalledTimes(1);
+		// execute's finally must tear down both raw listeners (collapse + transcript
+		// scroll) once the tool resolves.
+		expect(removers).toHaveLength(2);
+		for (const remove of removers) expect(remove).toHaveBeenCalledTimes(1);
 	});
 
 	it("toggles once for Kitty keyboard press, repeat, and release events", async () => {
@@ -269,18 +322,126 @@ describe("ask_user_question — raw terminal collapse listener", () => {
 		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
 	});
 
-	it("does not register a listener when collapseKey is 'off'", async () => {
+	it("keeps collapse disabled when collapseKey is 'off'", async () => {
 		writeCollapseKeyConfig("off");
 		const tool = register();
 		const handle = makeHandle();
-		const { ctx, onTerminalInput, componentRef } = driveWithListener(handle, (done) => {
+		const { ctx, listenerRef, componentRef } = driveWithListener(handle, (done) => {
 			// The footer must not advertise a collapse shortcut that cannot fire (#176).
 			const rendered = componentRef.current!.render(120).join("\n");
 			expect(rendered).not.toContain("to collapse");
 			expect(rendered).toContain("Esc to cancel");
+			// The transcript-scroll listener is still registered, but the collapse key
+			// must not hide the overlay when the shortcut is disabled.
+			expect(listenerRef.current?.(CTRL_RBRACKET)).toBeUndefined();
+			expect(handle.isHidden()).toBe(false);
 			done({ answers: [], cancelled: true });
 		});
 		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
-		expect(onTerminalInput).not.toHaveBeenCalled();
+	});
+});
+
+describe("ask_user_question — raw transcript scroll listener", () => {
+	it("scrolls a full page on PgUp/PgDn and keeps the dialog focused and rendered", async () => {
+		const tool = register();
+		const handle = makeHandle();
+		const { ctx, scrollBy, listenerRef, componentRef } = driveWithListener(handle, (done) => {
+			// 20-row transcript viewport - 4 (host page overlap).
+			expect(listenerRef.current?.(PAGE_UP)).toEqual({ consume: true });
+			expect(listenerRef.current?.(PAGE_DOWN)).toEqual({ consume: true });
+			expect(scrollBy).toHaveBeenNthCalledWith(1, -16);
+			expect(scrollBy).toHaveBeenNthCalledWith(2, 16);
+			// The overlay stayed focused: the dialog is still the rendered component.
+			expect(componentRef.current!.render(120).length).toBeGreaterThan(1);
+			done({ answers: [], cancelled: true });
+		});
+		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
+	});
+
+	it("scrolls the transcript on SGR wheel events", async () => {
+		const tool = register();
+		const handle = makeHandle();
+		const { ctx, scrollBy, listenerRef } = driveWithListener(handle, (done) => {
+			expect(listenerRef.current?.(WHEEL_UP)).toEqual({ consume: true });
+			expect(listenerRef.current?.(WHEEL_DOWN)).toEqual({ consume: true });
+			expect(scrollBy).toHaveBeenNthCalledWith(1, -3);
+			expect(scrollBy).toHaveBeenNthCalledWith(2, 3);
+			done({ answers: [], cancelled: true });
+		});
+		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
+	});
+
+	it("leaves scroll keys to another focused overlay (visible but unfocused questionnaire)", async () => {
+		const tool = register();
+		const handle = makeHandle({ isFocused: () => false });
+		const { ctx, scrollBy, listenerRef } = driveWithListener(handle, (done) => {
+			expect(listenerRef.current?.(PAGE_UP)).toBeUndefined();
+			expect(listenerRef.current?.(WHEEL_UP)).toBeUndefined();
+			expect(scrollBy).not.toHaveBeenCalled();
+			done({ answers: [], cancelled: true });
+		});
+		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
+	});
+
+	it("stops scrolling once the overlay is hidden", async () => {
+		const tool = register();
+		const handle = makeHandle();
+		const { ctx, scrollBy, listenerRef } = driveWithListener(handle, (done) => {
+			handle.setHidden(true);
+			expect(listenerRef.current?.(PAGE_UP)).toBeUndefined();
+			expect(scrollBy).not.toHaveBeenCalled();
+			done({ answers: [], cancelled: true });
+		});
+		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
+	});
+
+	it("registers the scroll listener even with collapseKey 'off' and tears it down", async () => {
+		writeCollapseKeyConfig("off");
+		const tool = register();
+		const handle = makeHandle();
+		const { ctx, onTerminalInput, removers, scrollBy, listenerRef } = driveWithListener(handle, (done) => {
+			expect(listenerRef.current?.(PAGE_UP)).toEqual({ consume: true });
+			expect(scrollBy).toHaveBeenCalledWith(-16);
+			done({ answers: [], cancelled: true });
+		});
+		await tool.execute?.("tc", params as never, undefined as never, undefined as never, ctx);
+		// Only the scroll listener exists when collapse is disabled.
+		expect(onTerminalInput).toHaveBeenCalledTimes(1);
+		expect(removers).toHaveLength(1);
+		expect(removers[0]).toHaveBeenCalledTimes(1);
+	});
+
+	it("leaves PgUp/PgDn to the dialog's option-list paging on a host without a scrollable viewport", async () => {
+		const tool = register();
+		const handle = makeHandle();
+		const manyOptions = {
+			questions: [
+				{
+					question: "Pick one",
+					header: "Choice",
+					options: Array.from({ length: 8 }, (_, i) => ({ label: `Option ${i + 1}` })),
+				},
+			],
+		};
+		const { ctx, scrollBy, listenerRef, componentRef } = driveWithListener(
+			handle,
+			(done) => {
+				// Not consumed by the raw listener, so pi-tui forwards it to the dialog.
+				expect(listenerRef.current?.(PAGE_DOWN)).toBeUndefined();
+				componentRef.current!.handleInput(PAGE_DOWN);
+				componentRef.current!.handleInput("\r");
+				expect(scrollBy).not.toHaveBeenCalled();
+			},
+			{ scrollable: false },
+		);
+		const result = (await tool.execute?.(
+			"tc",
+			manyOptions as never,
+			undefined as never,
+			undefined as never,
+			ctx,
+		)) as { details: { answers: Array<{ answer: unknown }> } };
+		// PAGE_STEP (5) rows down from the first option.
+		expect(result.details.answers[0]?.answer).toBe("Option 6");
 	});
 });

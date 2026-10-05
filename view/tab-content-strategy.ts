@@ -2,7 +2,6 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, Container, type Editor, Spacer, Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { COLLAPSE_KEY_OFF, formatKeySpecForDisplay } from "../config.js";
 import { t } from "../state/i18n-bridge.js";
-import { PAGE_STEP } from "../state/key-router.js";
 import { formatAnswerScalar } from "../tool/format-answer.js";
 import type { QuestionData } from "../tool/types.js";
 import type { PreviewPane, PreviewPaneProps } from "./components/preview/preview-pane.js";
@@ -13,7 +12,6 @@ import {
 	HINT_PART_COLLAPSE_TEMPLATE,
 	HINT_PART_ENTER,
 	HINT_PART_NAV,
-	HINT_PART_PAGE,
 	HINT_PART_NEW_LINE,
 	HINT_PART_NOTES,
 	HINT_PART_TAB,
@@ -269,7 +267,7 @@ export class SubmitTabStrategy implements TabContentStrategy {
 
 /**
  * Build the controls hint line. Order:
- *   Enter · ↑/↓ [· Space toggle] [· n notes] [· Tab switch] · Esc [· PgUp/PgDn page]
+ *   Enter · ↑/↓ [· Space toggle] [· n notes] [· Tab switch] · Esc
  *   [· <key> collapse]
  *   [· Shift+Enter newline] [· Ctrl+U clear]
  *
@@ -294,9 +292,6 @@ export function buildHintText(
 	if (question && !state.notesVisible && !state.inputMode) parts.push(t("hint.notes", HINT_PART_NOTES));
 	if (isMulti) parts.push(t("hint.tab", HINT_PART_TAB));
 	parts.push(t("hint.cancel", HINT_PART_CANCEL));
-	// Paging only matters on long lists; placed after cancel so the resting core stays a
-	// contiguous prefix and a narrow terminal clips this before it clips "Esc to cancel".
-	if (question && question.options.length > PAGE_STEP) parts.push(t("hint.page", HINT_PART_PAGE));
 	if (collapseKey !== COLLAPSE_KEY_OFF) {
 		parts.push(
 			t("hint.collapse", HINT_PART_COLLAPSE_TEMPLATE).replace(KEY_PLACEHOLDER, formatKeySpecForDisplay(collapseKey)),

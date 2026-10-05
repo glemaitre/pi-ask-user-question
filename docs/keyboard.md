@@ -8,7 +8,7 @@ adapts to the size of your terminal.
 | Key | What it does | Where it applies |
 | --- | --- | --- |
 | `↑` / `↓` | Move between rows. Wraps at both ends. | Option list, Submit picker |
-| `PgUp` / `PgDn` | Jump five rows up / down. Stops at the first / last row (no wrap). Follows `tui.select.pageUp` / `tui.select.pageDown`. | Option list |
+| `PgUp` / `PgDn` | Scroll the transcript behind the dialog by a full page. Follows `tui.altScreen.pageUp` / `tui.altScreen.pageDown`. | Everywhere in the dialog, on fullscreen hosts |
 | `Enter` | Confirm the focused option, commit typed text, close notes, or activate the focused Submit-picker row. | Everywhere |
 | `Shift+Enter` | Insert a newline. | `Type something.` input, notes editor |
 | `Esc` | Cancel the whole questionnaire. | Everywhere except the notes editor, where it closes notes |
@@ -34,6 +34,25 @@ without leaving the home row.
 `Space` is suppressed on two rows: `Next` (it is a command, not a choice) and
 `Type something.` (it is an inline text input, so the space character belongs to your
 answer).
+
+## Scrolling the transcript behind the dialog
+
+While the dialog is open you keep access to the conversation it covers. `PgUp` / `PgDn`
+scroll the transcript by a full page, and the mouse wheel scrolls it a few lines per
+notch; the alt-screen bindings (`tui.altScreen.lineUp` / `lineDown` / `halfPageUp` /
+`halfPageDown` / `top` / `bottom`) work too. Arrows still move between the dialog's rows
+and `Enter` / typing keep answering it — only the scroll keys are redirected. This holds
+inside the `Type something.` and notes editors as well: there `PgUp` / `PgDn` scroll the
+transcript rather than paging through your draft, while the arrows keep moving the cursor.
+
+A page matches Pi's own: the transcript viewport height minus a four-line overlap, so
+consecutive pages never skip a line.
+
+This works on Pi's fullscreen (alt-screen) host, where the transcript owns a scrollable
+viewport. On the legacy main-screen host, `PgUp` / `PgDn` fall back to the dialog's own
+option-list paging, and the terminal owns scrolling.
+
+If you want the whole dialog out of the way instead, use [collapse mode](#collapse-mode).
 
 ## The rows the dialog adds
 
@@ -124,8 +143,6 @@ it becomes a window of exactly 20 rows centred on the focused option:
   out of view) and to the left column of the side-by-side preview layout.
 - A focused row taller than the window — a long multi-line custom answer — is always
   shown whole; the dialog's own overflow scrolling takes over from there.
-- Questions with more than five options add `PgUp/PgDn to page` to the footer hint, after
-  `Esc to cancel` so it is the first part a narrow terminal clips.
 
 ### Many questions: the windowed tab strip
 
